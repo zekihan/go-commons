@@ -1,0 +1,73 @@
+name: PR Workflow
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Out The Repo
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5.5.0
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Set up GoReleaser
+        uses: goreleaser/goreleaser-action@v6.3.0
+        with:
+          install-only: true
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends make build-essential
+          chmod +x .github/scripts/install_build_deps.sh
+          bash .github/scripts/install_build_deps.sh
+
+      - name: Test
+        run: |
+          make test
+
+  lint_and_format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Out The Repo
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Go
+        uses: actions/setup-go@v5.5.0
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Set up GoReleaser
+        uses: goreleaser/goreleaser-action@v6.3.0
+        with:
+          install-only: true
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends make build-essential
+          chmod +x .github/scripts/install_build_deps.sh
+          bash .github/scripts/install_build_deps.sh
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8.0.0
+
+      - name: Format and Lint
+        run: |
+          make tidy
+          git diff --exit-code
