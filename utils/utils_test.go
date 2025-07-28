@@ -34,3 +34,46 @@ func TestRandString(t *testing.T) {
 		})
 	}
 }
+
+func TestContains(t *testing.T) {
+	ints := []int{1, 2, 3, 4}
+	if !Contains(ints, 3) {
+		t.Errorf("Contains failed: expected true for 3 in %v", ints)
+	}
+
+	if Contains(ints, 5) {
+		t.Errorf("Contains failed: expected false for 5 in %v", ints)
+	}
+
+	strs := []string{"a", "b", "c"}
+	if !Contains(strs, "b") {
+		t.Errorf("Contains failed: expected true for 'b' in %v", strs)
+	}
+
+	if Contains(strs, "d") {
+		t.Errorf("Contains failed: expected false for 'd' in %v", strs)
+	}
+}
+
+func TestRemoveEmptyItems(t *testing.T) {
+	input := []string{"a", " ", "", "b", "\t", "c", "\n"}
+	expected := []string{"a", "b", "c"}
+
+	result := RemoveEmptyItems(input)
+	if len(result) != len(expected) {
+		t.Fatalf("RemoveEmptyItems failed: expected length %d, got %d", len(expected), len(result))
+	}
+
+	for i, v := range expected {
+		if result[i] != v {
+			t.Errorf("RemoveEmptyItems failed: expected %v, got %v", expected, result)
+		}
+	}
+
+	emptyInput := []string{"", " ", "\t"}
+
+	result = RemoveEmptyItems(emptyInput)
+	if len(result) != 0 {
+		t.Errorf("RemoveEmptyItems failed: expected empty slice, got %v", result)
+	}
+}

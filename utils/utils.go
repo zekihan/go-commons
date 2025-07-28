@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 )
 
 var ErrNegativeLength = errors.New("length cannot be negative")
@@ -26,4 +27,26 @@ func RandString(nByte int) (string, error) {
 	}
 
 	return base64.RawURLEncoding.EncodeToString(randomBytes), nil
+}
+
+func Contains[T comparable](commons []T, item T) bool {
+	for _, common := range commons {
+		if common == item {
+			return true
+		}
+	}
+
+	return false
+}
+
+func RemoveEmptyItems(list []string) []string {
+	var result []string
+
+	for _, item := range list {
+		if strings.TrimSpace(item) != "" {
+			result = append(result, item)
+		}
+	}
+
+	return result
 }
