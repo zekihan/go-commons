@@ -10,13 +10,17 @@ GO_EXECUTABLE := go
 tidy:
 	${GO_EXECUTABLE} fmt ./...
 	${GO_EXECUTABLE} mod tidy -v
+
+## lint: run linter
+.PHONY: lint
+lint: tidy
 	golangci-lint fmt
 	golangci-lint run --fix > /dev/null 2>&1 || true
 	golangci-lint run
 
 ## audit: run quality control checks
 .PHONY: audit
-audit:
+audit: tidy
 	${GO_EXECUTABLE} mod verify
 	${GO_EXECUTABLE} vet ./...
 	${GO_EXECUTABLE} run honnef.co/go/tools/cmd/staticcheck@latest -checks=all,-ST1000,-U1000 ./...
@@ -25,13 +29,13 @@ audit:
 
 ## test: run all tests
 .PHONY: test
-test:
+test: tidy
 	CGO_ENABLED=0 ${GO_EXECUTABLE} test -v -buildvcs -vet=all ./...
 	CGO_ENABLED=1 ${GO_EXECUTABLE} test -v -race -buildvcs -vet=all ./...
 
 ## test/cover: run all tests and display coverage
 .PHONY: test/cover
-test/cover:
+test/cover: tidy
 	mkdir -p ${TMP_DIR}
 	${GO_EXECUTABLE} test -v -buildvcs -vet=off -coverprofile=${TMP_DIR}/coverage.out ./...
 	${GO_EXECUTABLE} tool cover -html=${TMP_DIR}/coverage.out
