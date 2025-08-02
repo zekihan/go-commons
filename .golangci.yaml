@@ -122,6 +122,8 @@ linters:
       min-occurrences: 4
     gocritic:
       enable-all: true
+      disabled-checks:
+        - unnamedResult
     gocyclo:
       min-complexity: 14
     godox:
@@ -153,6 +155,13 @@ linters:
         - unused
         - opaque
         - unexported
+    ireturn:
+      allow:
+        - anon
+        - error
+        - empty
+        - stdlib
+        - UniversalClient
     paralleltest:
       ignore-missing: true
     varnamelen:
