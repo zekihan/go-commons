@@ -251,6 +251,10 @@ linters:
         - name: if-return
         - name: increment-decrement
         - name: var-naming
+          arguments:
+            - [ ] # AllowList
+            - [ ] # DenyList
+            - - skip-package-name-checks: true
         - name: var-declaration
         - name: package-comments
           disabled: true
