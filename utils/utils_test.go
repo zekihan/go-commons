@@ -77,3 +77,26 @@ func TestRemoveEmptyItems(t *testing.T) {
 		t.Errorf("RemoveEmptyItems failed: expected empty slice, got %v", result)
 	}
 }
+
+func TestMaskString(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"", ""},
+		{"a", "****"},
+		{"ab", "****"},
+		{"abcd", "****"},
+		{"abcde", "abcd****"},
+		{"abcdefgh", "abcd****"},
+		{"1234", "****"},
+		{"12345", "1234****"},
+	}
+
+	for _, tt := range tests {
+		got := MaskString(tt.input)
+		if got != tt.expected {
+			t.Errorf("MaskString(%q) = %q, want %q", tt.input, got, tt.expected)
+		}
+	}
+}

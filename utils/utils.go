@@ -50,3 +50,13 @@ func RemoveEmptyItems(list []string) []string {
 
 	return result
 }
+
+func MaskString(secret string) string {
+	if secret == "" {
+		return ""
+	}
+	if len(secret) <= 4 {
+		return "****"
+	}
+	return secret[:4] + "****"
+}
