@@ -51,12 +51,16 @@ func RemoveEmptyItems(list []string) []string {
 	return result
 }
 
+const defaultUnmaskedStringLength = 4
+
 func MaskString(secret string) string {
 	if secret == "" {
 		return ""
 	}
-	if len(secret) <= 4 {
+
+	if len(secret) <= defaultUnmaskedStringLength {
 		return "****"
 	}
-	return secret[:4] + "****"
+
+	return secret[:defaultUnmaskedStringLength] + "****"
 }
