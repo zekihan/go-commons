@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"go/constant"
 	"testing"
 )
 
@@ -98,5 +99,40 @@ func TestMaskString(t *testing.T) {
 		if got != tt.expected {
 			t.Errorf("MaskString(%q) = %q, want %q", tt.input, got, tt.expected)
 		}
+	}
+}
+
+func TestPointerTo(t *testing.T) {
+	type custom struct {
+		Y string
+		X int
+	}
+
+	tests := []struct {
+		input any
+		name  string
+	}{
+		{42, constant.Int.String()},
+		{"hello", constant.String.String()},
+		{custom{X: 1, Y: "a"}, "Struct"},
+		{[]int{1, 2, 3}, "Slice"},
+		{(*int)(nil), "NilPointer"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			switch value := tt.input.(type) {
+			case int, string, custom, *int:
+				ptr := PointerTo(value)
+				if ptr == nil || *ptr != value {
+					t.Errorf("PointerTo(%v) = %v, want pointer to %v", value, ptr, value)
+				}
+			case []int:
+				ptr := PointerTo(value)
+				if ptr == nil || len(*ptr) != len(value) {
+					t.Errorf("PointerTo(%v) = %v, want pointer to %v", value, ptr, value)
+				}
+			}
+		})
 	}
 }

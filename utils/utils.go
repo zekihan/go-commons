@@ -64,3 +64,8 @@ func MaskString(secret string) string {
 
 	return secret[:defaultUnmaskedStringLength] + "****"
 }
+
+// PointerTo returns a pointer to the given value.
+func PointerTo[T any](value T) *T {
+	return &value
+}
