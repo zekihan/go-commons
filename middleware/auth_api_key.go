@@ -40,5 +40,13 @@ func getAPIKeyFromRequest(r *http.Request) string {
 		return userAPIKey
 	}
 
+	_, password, ok := r.BasicAuth()
+	if ok {
+		password = strings.TrimSpace(password)
+		if password != "" {
+			return password
+		}
+	}
+
 	return userAPIKey
 }

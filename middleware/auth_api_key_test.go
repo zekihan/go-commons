@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -76,5 +77,24 @@ func TestAuth_WrongAPIKey(t *testing.T) {
 
 	if rr.Code != http.StatusUnauthorized {
 		t.Errorf("expected status 401, got %d", rr.Code)
+	}
+}
+
+func TestAuth_BasicAuthPasswordAPIKey(t *testing.T) {
+	Auth := GetAuthMiddlewareForSingleAPIKey("secret")
+	handler := Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Any username, password is the API key
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	auth := "Basic " + base64.StdEncoding.EncodeToString([]byte("anyuser:secret"))
+	req.Header.Set("Authorization", auth)
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", rr.Code)
 	}
 }
