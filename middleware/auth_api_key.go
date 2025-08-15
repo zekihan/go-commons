@@ -29,26 +29,27 @@ func GetAuthMiddlewareForSingleAPIKey(apiKey string) func(http.Handler) http.Han
 
 func getAPIKeyFromRequest(r *http.Request) string {
 	userAPIKey := r.Header.Get("X-Api-Key")
+
 	userAPIKey = strings.TrimSpace(userAPIKey)
 	if userAPIKey != "" {
 		return userAPIKey
 	}
 
 	userAPIKey = r.URL.Query().Get("apiKey")
+
 	userAPIKey = strings.TrimSpace(userAPIKey)
 	if userAPIKey != "" {
 		return userAPIKey
 	}
 
-	// Try to get API key from cookie
-	if cookie, err := r.Cookie("apiKey"); err == nil {
+	cookie, err := r.Cookie("apiKey")
+	if err == nil {
 		cookieVal := strings.TrimSpace(cookie.Value)
 		if cookieVal != "" {
 			return cookieVal
 		}
 	}
 
-	// Try to get API key from Basic Auth password field
 	_, password, ok := r.BasicAuth()
 	if ok {
 		password = strings.TrimSpace(password)
