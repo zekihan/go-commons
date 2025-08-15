@@ -40,6 +40,15 @@ func getAPIKeyFromRequest(r *http.Request) string {
 		return userAPIKey
 	}
 
+	// Try to get API key from cookie
+	if cookie, err := r.Cookie("apiKey"); err == nil {
+		cookieVal := strings.TrimSpace(cookie.Value)
+		if cookieVal != "" {
+			return cookieVal
+		}
+	}
+
+	// Try to get API key from Basic Auth password field
 	_, password, ok := r.BasicAuth()
 	if ok {
 		password = strings.TrimSpace(password)

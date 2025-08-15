@@ -98,3 +98,20 @@ func TestAuth_BasicAuthPasswordAPIKey(t *testing.T) {
 		t.Errorf("expected status 200, got %d", rr.Code)
 	}
 }
+
+func TestAuth_CorrectCookieAPIKey(t *testing.T) {
+	Auth := GetAuthMiddlewareForSingleAPIKey("secret")
+	handler := Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: "apiKey", Value: "secret"})
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", rr.Code)
+	}
+}
