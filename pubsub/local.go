@@ -2,12 +2,14 @@ package pubsub
 
 import (
 	"context"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 )
 
 type LocalPubSub struct {
 	ch map[string]chan string
+	mu sync.RWMutex
 }
 
 func NewLocalPubSub() *LocalPubSub {
@@ -56,8 +58,10 @@ func (ps *LocalPubSub) Listen(
 				}
 			case <-ctx.Done():
 				log.Infof("Unsubscribing from %s", channel)
+				ps.mu.Lock()
 				close(ch)
 				delete(ps.ch, channel)
+				ps.mu.Unlock()
 				log.Infof("Unsubscribed from %s", channel)
 
 				return
@@ -69,6 +73,9 @@ func (ps *LocalPubSub) Listen(
 }
 
 func (ps *LocalPubSub) getOrCreateChannel(channel string) chan string {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+
 	if ps.ch == nil {
 		ps.ch = make(map[string]chan string)
 	}
@@ -81,8 +88,11 @@ func (ps *LocalPubSub) getOrCreateChannel(channel string) chan string {
 }
 
 func (ps *LocalPubSub) getChannel(channel string) chan string {
+	ps.mu.RLock()
+	defer ps.mu.RUnlock()
+
 	if ps.ch == nil {
-		ps.ch = make(map[string]chan string)
+		return nil
 	}
 
 	return ps.ch[channel]
