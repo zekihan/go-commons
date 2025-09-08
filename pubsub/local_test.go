@@ -8,7 +8,7 @@ import (
 )
 
 func TestLocalPubSub_PublishAndListen(t *testing.T) {
-	ps := NewLocalPubSub()
+	ps := NewLocalPubSub(nil)
 	channel := "test-channel"
 	message := "hello"
 
@@ -49,7 +49,7 @@ func TestLocalPubSub_PublishAndListen(t *testing.T) {
 }
 
 func TestLocalPubSub_CancelListen(t *testing.T) {
-	ps := NewLocalPubSub()
+	ps := NewLocalPubSub(nil)
 	channel := "cancel-channel"
 
 	var called bool

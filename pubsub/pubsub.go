@@ -19,18 +19,31 @@ type UniversalPubSub struct {
 }
 
 type UniversalPubSubOptions struct {
-	Redis redis.UniversalClient
+	Redis  redis.UniversalClient
+	Prefix string
 }
 
 func NewUniversalPubSub(opts *UniversalPubSubOptions) *UniversalPubSub {
+	if opts == nil {
+		opts = &UniversalPubSubOptions{}
+	}
+
 	var ps PubSuber
 	if opts.Redis != nil {
-		ps = NewRedisPubSub(opts.Redis)
+		ps = NewRedisPubSub(opts)
 	} else {
-		ps = NewLocalPubSub()
+		ps = NewLocalPubSub(opts)
 	}
 
 	return &UniversalPubSub{
 		PubSuber: ps,
 	}
+}
+
+func getChannelName(prefix, channel string) string {
+	if prefix != "" {
+		return prefix + ":" + channel
+	}
+
+	return channel
 }
