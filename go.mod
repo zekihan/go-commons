@@ -10,14 +10,14 @@ require (
 	github.com/redis/go-redis/v9 v9.16.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/snowzach/rotatefilehook v0.0.0-20220211133110-53752135082d
-	github.com/tdewolff/minify/v2 v2.24.4
+	github.com/tdewolff/minify/v2 v2.24.5
 )
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/stretchr/testify v1.11.0 // indirect
-	github.com/tdewolff/parse/v2 v2.8.4 // indirect
+	github.com/tdewolff/parse/v2 v2.8.5-0.20251020133559-0efcf90bef1a // indirect
 	golang.org/x/sys v0.35.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 )
