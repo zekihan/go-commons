@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 )
 
@@ -30,13 +31,7 @@ func RandString(nByte int) (string, error) {
 }
 
 func Contains[T comparable](commons []T, item T) bool {
-	for _, common := range commons {
-		if common == item {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(commons, item)
 }
 
 func RemoveEmptyItems(list []string) []string {

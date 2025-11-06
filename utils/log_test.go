@@ -23,6 +23,7 @@ func TestInitLogger_NoFileHook(t *testing.T) {
 		log.SetFormatter(origFormatter)
 		log.SetReportCaller(origReportCaller)
 		log.SetOutput(origOutput)
+
 		log.StandardLogger().Hooks = origHooks
 	}()
 
@@ -75,6 +76,7 @@ func TestInitLogger_WithFileHook(t *testing.T) {
 		log.SetFormatter(origFormatter)
 		log.SetReportCaller(origReportCaller)
 		log.SetOutput(origOutput)
+
 		log.StandardLogger().Hooks = origHooks
 	}()
 
