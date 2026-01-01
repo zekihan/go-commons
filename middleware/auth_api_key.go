@@ -5,18 +5,14 @@ import (
 	"strings"
 )
 
-func GetAuthMiddlewareForSingleAPIKey(apiKey string) func(http.Handler) http.Handler {
-	if apiKey == "" {
-		return func(handler http.Handler) http.Handler {
-			return handler
-		}
-	}
-
+func GetAuthMiddlewareWithFunction(
+	f func(r *http.Request, apiKey string) bool,
+) func(http.Handler) http.Handler {
 	return func(handler http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			userAPIKey := getAPIKeyFromRequest(r)
 
-			if userAPIKey != apiKey {
+			if !f(r, userAPIKey) {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 
 				return
@@ -25,6 +21,16 @@ func GetAuthMiddlewareForSingleAPIKey(apiKey string) func(http.Handler) http.Han
 			handler.ServeHTTP(w, r)
 		})
 	}
+}
+
+func GetAuthMiddlewareForSingleAPIKey(apiKey string) func(http.Handler) http.Handler {
+	return GetAuthMiddlewareWithFunction(func(r *http.Request, userAPIKey string) bool {
+		if apiKey == "" {
+			return true
+		}
+
+		return userAPIKey == apiKey
+	})
 }
 
 func getAPIKeyFromRequest(r *http.Request) string {
