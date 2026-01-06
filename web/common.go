@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -34,13 +35,19 @@ func CheckError(w http.ResponseWriter, err error, statusCode int, messages ...st
 		}
 
 		if statusCode >= http.StatusInternalServerError {
-			slog.Error(
+			slog.ErrorContext(
+				context.Background(),
 				"Returned non 2xx http code",
 				slog.Int("httpCode", statusCode),
 				slog.Any("error", err),
 			)
 		} else {
-			slog.Warn("Returned non 2xx http code", slog.Any("error", err))
+			slog.WarnContext(
+				context.Background(),
+				"Returned non 2xx http code",
+				slog.Int("httpCode", statusCode),
+				slog.Any("error", err),
+			)
 		}
 
 		http.Error(w, err.Error(), statusCode)

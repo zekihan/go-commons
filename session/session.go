@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"log/slog"
 	"time"
 
@@ -21,7 +22,11 @@ type Cookie struct {
 func NewCookie() *Cookie {
 	id, err := uuid.NewV7()
 	if err != nil {
-		slog.Error("Error generating UUID for new cookie", slog.Any("error", err))
+		slog.ErrorContext(
+			context.Background(),
+			"Error generating UUID for new cookie",
+			slog.Any("error", err),
+		)
 
 		return nil
 	}
