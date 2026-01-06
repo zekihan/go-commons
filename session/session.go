@@ -1,11 +1,10 @@
 package session
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
-
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -22,7 +21,7 @@ type Cookie struct {
 func NewCookie() *Cookie {
 	id, err := uuid.NewV7()
 	if err != nil {
-		log.Errorf("Failed to generate session ID")
+		slog.Error("Error generating UUID for new cookie", slog.Any("error", err))
 
 		return nil
 	}

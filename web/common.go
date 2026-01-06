@@ -2,9 +2,8 @@ package web
 
 import (
 	"io"
+	"log/slog"
 	"net/http"
-
-	log "github.com/sirupsen/logrus"
 
 	"github.com/zekihan/go-commons/utils"
 )
@@ -26,15 +25,22 @@ func WriteString(w http.ResponseWriter, s string) bool {
 func CheckError(w http.ResponseWriter, err error, statusCode int, messages ...string) bool {
 	if err != nil {
 		err = utils.WrapErrors(err, messages...)
+		if err == nil {
+			return false
+		}
 
 		if statusCode == 0 {
 			statusCode = http.StatusInternalServerError
 		}
 
 		if statusCode >= http.StatusInternalServerError {
-			log.Error(err)
+			slog.Error(
+				"Returned non 2xx http code",
+				slog.Int("httpCode", statusCode),
+				slog.Any("error", err),
+			)
 		} else {
-			log.Warn(err)
+			slog.Warn("Returned non 2xx http code", slog.Any("error", err))
 		}
 
 		http.Error(w, err.Error(), statusCode)

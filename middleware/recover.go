@@ -1,16 +1,19 @@
 package middleware
 
 import (
+	"log/slog"
 	"net/http"
-
-	log "github.com/sirupsen/logrus"
 )
 
 func RecoverHandler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				log.Errorf("Panic: %v", err)
+				slog.ErrorContext(
+					r.Context(),
+					"Panic recovered in HTTP handler",
+					slog.Any("error", err),
+				)
 				http.Error(
 					w,
 					http.StatusText(http.StatusInternalServerError),

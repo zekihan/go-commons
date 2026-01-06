@@ -2,18 +2,17 @@ package middleware
 
 import (
 	"bytes"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
-
-	log "github.com/sirupsen/logrus"
 )
 
 func TestLogging_HandlerCalled(t *testing.T) {
 	var logBuffer bytes.Buffer
-	log.SetOutput(&logBuffer) // capture logs in buffer
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logBuffer, nil))) // capture logs in buffer
 
 	called := false
 	handler := Logging(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -41,7 +40,7 @@ func TestLogging_HandlerCalled(t *testing.T) {
 
 func TestLogging_HandlerCalled_IPUnknown(t *testing.T) {
 	var logBuffer bytes.Buffer
-	log.SetOutput(&logBuffer) // capture logs in buffer
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logBuffer, nil))) // capture logs in buffer
 
 	called := false
 	handler := Logging(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

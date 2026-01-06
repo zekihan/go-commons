@@ -1,63 +1,47 @@
 package utils
 
 import (
-	"fmt"
+	"io"
+	"log/slog"
 	"os"
-	"time"
-
-	"github.com/snowzach/rotatefilehook"
-
-	log "github.com/sirupsen/logrus"
-)
-
-const (
-	defaultLogFileSize   = 50 // megabytes
-	defaultLogMaxBackups = 3
-	defaultLogMaxAge     = 28 // days
 )
 
 type LoggerConfig struct {
-	Path          string
-	Level         log.Level
-	AddMethodName bool
+	Writer    io.Writer
+	Level     slog.Level
+	AddSource bool
 }
 
-func InitLogger(cfg *LoggerConfig) error {
-	log.SetLevel(cfg.Level)
-	log.SetFormatter(&log.TextFormatter{
-		ForceColors:     true,
-		FullTimestamp:   true,
-		TimestampFormat: time.RFC822,
+// InitLogger initializes the global slog logger.
+// Passing nil uses sane defaults.
+func InitLogger(cfg *LoggerConfig) {
+	c := resolveLoggerConfig(cfg)
+
+	handler := slog.NewTextHandler(c.Writer, &slog.HandlerOptions{
+		Level:     c.Level,
+		AddSource: c.AddSource,
 	})
-	log.SetReportCaller(cfg.AddMethodName)
-	log.SetOutput(os.Stdout)
 
-	if cfg.Path != "" {
-		err := AddFileHook(cfg)
-		if err != nil {
-			return fmt.Errorf("failed to add file hook: %w", err)
-		}
-	}
-
-	return nil
+	slog.SetDefault(slog.New(handler))
 }
 
-func AddFileHook(cfg *LoggerConfig) error {
-	rotateFileHook, err := rotatefilehook.NewRotateFileHook(rotatefilehook.RotateFileConfig{
-		Filename:   cfg.Path,
-		MaxSize:    defaultLogFileSize, // megabytes
-		MaxBackups: defaultLogMaxBackups,
-		MaxAge:     defaultLogMaxAge, // days
-		Level:      cfg.Level,
-		Formatter: &log.JSONFormatter{
-			TimestampFormat: time.RFC822,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create rotate file hook: %w", err)
+func resolveLoggerConfig(cfg *LoggerConfig) LoggerConfig {
+	defaultCfg := LoggerConfig{
+		Level:     slog.LevelInfo,
+		AddSource: false,
+		Writer:    os.Stdout,
 	}
 
-	log.AddHook(rotateFileHook)
+	if cfg == nil {
+		return defaultCfg
+	}
 
-	return nil
+	if cfg.Writer != nil {
+		defaultCfg.Writer = cfg.Writer
+	}
+
+	defaultCfg.Level = cfg.Level
+	defaultCfg.AddSource = cfg.AddSource
+
+	return defaultCfg
 }

@@ -3,10 +3,9 @@ package pubsub
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/redis/go-redis/v9"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type RedisPubSub struct {
@@ -33,7 +32,12 @@ func (ps *RedisPubSub) Publish(ctx context.Context, channel, message string) err
 	chKey := getChannelName(ps.prefix, channel)
 
 	if ps.rdb == nil {
-		log.Warnf("Redis is not enabled, cannot publish message to %s", chKey)
+		slog.WarnContext(
+			ctx,
+			"Redis client is nil, cannot publish message",
+			slog.String("channel", chKey),
+			slog.String("message", message),
+		)
 
 		return nil
 	}
@@ -43,7 +47,12 @@ func (ps *RedisPubSub) Publish(ctx context.Context, channel, message string) err
 		return fmt.Errorf("error publishing message to %s: %w", chKey, err)
 	}
 
-	log.Infof("Published message to %s: %s", chKey, message)
+	slog.InfoContext(
+		ctx,
+		"Published message",
+		slog.String("channel", chKey),
+		slog.String("message", message),
+	)
 
 	return nil
 }
@@ -58,35 +67,57 @@ func (ps *RedisPubSub) Listen(
 	sub := ps.rdb.Subscribe(ctx, chKey)
 	ch := sub.Channel()
 
-	log.Infof("Subscribed to %s", chKey)
+	slog.InfoContext(ctx, "Subscribed to channel", slog.String("channel", chKey))
 
 	go func() {
 		for {
 			select {
 			case msg, ok := <-ch:
 				if !ok {
-					log.Warnf("Redis subscription to %s channel closed", chKey)
+					slog.WarnContext(
+						ctx,
+						"Redis subscription to channel is closed",
+						slog.String("channel", chKey),
+					)
 
 					return
 				}
 
-				log.Infof("Received message on %s: %v\n", chKey, msg.Payload)
+				slog.InfoContext(
+					ctx,
+					"Received message",
+					slog.String("channel", chKey),
+					slog.String("message", msg.Payload),
+				)
 
 				err := handler(ctx, msg.Payload)
 				if err != nil {
-					log.Errorf("Error executing function for %s: %v", chKey, err)
+					slog.ErrorContext(
+						ctx,
+						"Error handling message",
+						slog.String("channel", chKey),
+						slog.String("message", msg.Payload),
+						slog.Any("error", err),
+					)
 				}
 			case <-ctx.Done():
-				log.Infof("Unsubscribing from %s", chKey)
+				slog.InfoContext(
+					ctx, "Unsubscribing from channel", slog.String("channel", chKey))
 
 				err := sub.Close()
 				if err != nil {
-					log.Errorf("Error unsubscribing from %s: %v", chKey, err)
+					slog.ErrorContext(
+						ctx,
+						"Error unsubscribing from channel",
+						slog.String("channel", chKey),
+						slog.Any("error", err),
+					)
 
 					return
 				}
 
-				log.Infof("Unsubscribed from %s", chKey)
+				slog.InfoContext(
+					ctx, "Unsubscribed from channel", slog.String("channel", chKey))
 
 				return
 			}

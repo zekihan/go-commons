@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os/exec"
-
-	log "github.com/sirupsen/logrus"
 )
 
 func RunCmd(ctx context.Context, cmd string, env []string, args ...string) error {
@@ -15,7 +14,7 @@ func RunCmd(ctx context.Context, cmd string, env []string, args ...string) error
 		command.Env = env
 	}
 
-	err := runCmd(command)
+	err := runCmd(ctx, command)
 	if err != nil {
 		return err
 	}
@@ -31,7 +30,7 @@ func RunCmdInPath(ctx context.Context, cmdPath, cmd string, env []string, args .
 
 	command.Dir = cmdPath
 
-	err := runCmd(command)
+	err := runCmd(ctx, command)
 	if err != nil {
 		return err
 	}
@@ -39,7 +38,7 @@ func RunCmdInPath(ctx context.Context, cmdPath, cmd string, env []string, args .
 	return nil
 }
 
-func runCmd(command *exec.Cmd) error {
+func runCmd(ctx context.Context, command *exec.Cmd) error {
 	stderrPipe, err := command.StderrPipe()
 	if err != nil {
 		return fmt.Errorf("failed to get stderr pipe: %w", err)
@@ -64,7 +63,12 @@ func runCmd(command *exec.Cmd) error {
 
 	if len(stderr) > 0 {
 		stderrStr := string(stderr)
-		log.Info("Running: \"", commandStr, "\" err: ", stderrStr)
+		slog.InfoContext(
+			ctx,
+			"Running command",
+			slog.String("command", commandStr),
+			slog.String("stderr", stderrStr),
+		)
 	}
 
 	stdout, err := io.ReadAll(stdoutPipe)
@@ -74,7 +78,12 @@ func runCmd(command *exec.Cmd) error {
 
 	if len(stdout) > 0 {
 		stdoutStr := string(stdout)
-		log.Debug("Running: \"", commandStr, "\" output: ", stdoutStr)
+		slog.DebugContext(
+			ctx,
+			"Running command",
+			slog.String("command", commandStr),
+			slog.String("stdout", stdoutStr),
+		)
 	}
 
 	err = command.Wait()

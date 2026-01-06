@@ -2,9 +2,8 @@ package pubsub
 
 import (
 	"context"
+	"log/slog"
 	"sync"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type LocalPubSub struct {
@@ -24,13 +23,13 @@ func NewLocalPubSub(opts *UniversalPubSubOptions) *LocalPubSub {
 	}
 }
 
-func (ps *LocalPubSub) Publish(_ context.Context, channel, message string) error {
+func (ps *LocalPubSub) Publish(ctx context.Context, channel, message string) error {
 	chKey := getChannelName(ps.prefix, channel)
 
 	ch := ps.getChannel(chKey)
 
 	if ch == nil {
-		log.Warnf("channel %s not found", chKey)
+		slog.WarnContext(ctx, "No subscribers for channel", slog.String("channel", chKey))
 
 		return nil
 	}
@@ -48,31 +47,42 @@ func (ps *LocalPubSub) Listen(
 
 	ctx, cancel := context.WithCancel(context.Background())
 	ch := ps.getOrCreateChannel(chKey)
-	log.Infof("Subscribed to %s", chKey)
+	slog.InfoContext(ctx, "Subscribed to channel", slog.String("channel", chKey))
 
 	go func() {
 		for {
 			select {
 			case msg, ok := <-ch:
 				if !ok {
-					log.Warnf("Redis subscription to %s channel closed", chKey)
+					slog.WarnContext(ctx, "Channel closed", slog.String("channel", chKey))
 
 					return
 				}
 
-				log.Infof("Received message on %s: %v\n", chKey, msg)
+				slog.InfoContext(
+					ctx,
+					"Received message",
+					slog.String("channel", chKey),
+					slog.String("message", msg),
+				)
 
 				err := handler(ctx, msg)
 				if err != nil {
-					log.Errorf("Error executing function for %s: %v", chKey, err)
+					slog.ErrorContext(
+						ctx,
+						"Error handling message",
+						slog.String("channel", chKey),
+						slog.String("message", msg),
+						slog.Any("error", err),
+					)
 				}
 			case <-ctx.Done():
-				log.Infof("Unsubscribing from %s", chKey)
+				slog.InfoContext(ctx, "Unsubscribing from channel", slog.String("channel", chKey))
 				ps.mu.Lock()
 				close(ch)
 				delete(ps.ch, chKey)
 				ps.mu.Unlock()
-				log.Infof("Unsubscribed from %s", chKey)
+				slog.InfoContext(ctx, "Unsubscribed from channel", slog.String("channel", chKey))
 
 				return
 			}

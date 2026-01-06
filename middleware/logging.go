@@ -1,12 +1,11 @@
 package middleware
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/felixge/httpsnoop"
-
-	log "github.com/sirupsen/logrus"
 
 	"github.com/zekihan/go-commons/utils"
 )
@@ -40,19 +39,20 @@ func Logging(handler http.Handler) http.Handler {
 
 		ip, err := utils.GetIP(r)
 		if err != nil {
-			log.Error("Error getting IP: ", err)
+			slog.ErrorContext(r.Context(), "Error getting IP: ", slog.Any("error", err))
 
 			ip = "unknown"
 		}
 
-		m := httpsnoop.CaptureMetrics(handler, w, r)
-		log.Infof(
-			"%s %s %d %s %s",
-			r.Method,
-			ip,
-			m.Code,
-			m.Duration.Round(time.Millisecond),
-			r.URL.Path,
+		metrics := httpsnoop.CaptureMetrics(handler, w, r)
+		slog.InfoContext(r.Context(), "HTTP request",
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path),
+			slog.String("query", r.URL.RawQuery),
+			slog.String("ip", ip),
+			slog.Int("status", metrics.Code),
+			slog.Int64("size", metrics.Written),
+			slog.Duration("duration", metrics.Duration.Round(time.Millisecond)),
 		)
 	})
 }
