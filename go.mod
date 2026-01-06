@@ -7,6 +7,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/securecookie v1.1.2
 	github.com/joho/godotenv v1.5.1
+	github.com/lmittmann/tint v1.1.2
 	github.com/redis/go-redis/v9 v9.17.2
 	github.com/tdewolff/minify/v2 v2.24.8
 )

@@ -4,6 +4,9 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"time"
+
+	"github.com/lmittmann/tint"
 )
 
 type LoggerConfig struct {
@@ -17,9 +20,10 @@ type LoggerConfig struct {
 func InitLogger(cfg *LoggerConfig) {
 	c := resolveLoggerConfig(cfg)
 
-	handler := slog.NewTextHandler(c.Writer, &slog.HandlerOptions{
-		Level:     c.Level,
-		AddSource: c.AddSource,
+	handler := tint.NewHandler(c.Writer, &tint.Options{
+		Level:      c.Level,
+		AddSource:  c.AddSource,
+		TimeFormat: time.RFC3339,
 	})
 
 	slog.SetDefault(slog.New(handler))
