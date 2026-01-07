@@ -1,47 +1,70 @@
 package utils
 
 import (
+	"bytes"
+	"log/slog"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 )
 
-func TestGetStartupInfo_Clean(t *testing.T) {
-	// Save and restore globals.
-	origV, origD, origC, origG := Version, BuildDate, CommitHash, GitTreeState
+func TestLogVersionInfoWithTextHandlerValidBuildDate(t *testing.T) {
+	originalBuildDate := BuildDate
 
-	defer func() {
-		Version, BuildDate, CommitHash, GitTreeState = origV, origD, origC, origG
-	}()
+	defer func() { BuildDate = originalBuildDate }()
 
-	Version = "1.2.3"
-	BuildDate = "2023-01-02"
-	CommitHash = "abcd123"
-	GitTreeState = "clean"
+	timestamp := time.Now().Unix()
+	BuildDate = strconv.FormatInt(timestamp, 10)
+	expectedDate := time.Unix(timestamp, 0).UTC().Format(time.RFC3339)
 
-	got := GetStartupInfo()
+	origLogger := slog.Default()
+	defer slog.SetDefault(origLogger)
 
-	want := "Version: 1.2.3, Build Date: 2023-01-02, CommitHash: abcd123"
-	if got != want {
-		t.Errorf("got %q, want %q", got, want)
+	var buf bytes.Buffer
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+
+	LogVersionInfo(t.Context())
+
+	out := buf.String()
+	if !strings.Contains(out, Version) {
+		t.Fatalf("expected version in log, got: %q", out)
+	}
+
+	if !strings.Contains(out, CommitHash) {
+		t.Fatalf("expected commit hash in log, got: %q", out)
+	}
+
+	if !strings.Contains(out, GitTreeState) {
+		t.Fatalf("expected git tree state in log, got: %q", out)
+	}
+
+	if !strings.Contains(out, expectedDate) {
+		t.Fatalf("expected build date %q in log, got: %q", expectedDate, out)
 	}
 }
 
-func TestGetStartupInfo_Dirty(t *testing.T) {
-	// Save and restore globals.
-	origV, origD, origC, origG := Version, BuildDate, CommitHash, GitTreeState
+func TestLogVersionInfoWithTextHandlerInvalidBuildDateProducesZeroTime(t *testing.T) {
+	originalBuildDate := BuildDate
 
-	defer func() {
-		Version, BuildDate, CommitHash, GitTreeState = origV, origD, origC, origG
-	}()
+	defer func() { BuildDate = originalBuildDate }()
 
-	Version = "2.0.0"
-	BuildDate = "2024-06-07"
-	CommitHash = "deadbeef"
-	GitTreeState = "dirty"
+	BuildDate = "not-a-timestamp"
 
-	got := GetStartupInfo()
+	origLogger := slog.Default()
+	defer slog.SetDefault(origLogger)
 
-	want := "Version: 2.0.0, Build Date: 2024-06-07, CommitHash: deadbeef (dirty)"
-	if got != want {
-		t.Errorf("got %q, want %q", got, want)
+	var buf bytes.Buffer
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+
+	LogVersionInfo(t.Context())
+
+	out := buf.String()
+	if !strings.Contains(out, Version) {
+		t.Fatalf("expected version in log, got: %q", out)
+	}
+	// zero time formatted appears as 0001-01-01
+	if !strings.Contains(out, "0001-01-01") {
+		t.Fatalf("expected zero build_date in log when BuildDate invalid, got: %q", out)
 	}
 }

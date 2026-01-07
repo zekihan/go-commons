@@ -1,7 +1,10 @@
 package utils
 
 import (
-	"fmt"
+	"context"
+	"log/slog"
+	"strconv"
+	"time"
 )
 
 var (
@@ -11,17 +14,20 @@ var (
 	GitTreeState = "not a git repo"
 )
 
-func GetStartupInfo() string {
-	dirty := ""
-	if GitTreeState == "dirty" {
-		dirty = " (dirty)"
+func LogVersionInfo(ctx context.Context) {
+	date := time.Time{}
+
+	timestamp, err := strconv.ParseInt(BuildDate, 10, 64)
+	if err == nil {
+		date = time.Unix(timestamp, 0).UTC()
 	}
 
-	return fmt.Sprintf(
-		"Version: %s, Build Date: %s, CommitHash: %s%s",
-		Version,
-		BuildDate,
-		CommitHash,
-		dirty,
+	slog.InfoContext(
+		ctx,
+		"Application version info",
+		slog.String("version", Version),
+		slog.String("build_date", date.Format(time.RFC3339)),
+		slog.String("commit_hash", CommitHash),
+		slog.String("git_tree_state", GitTreeState),
 	)
 }
