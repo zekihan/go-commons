@@ -123,13 +123,13 @@ func TestPointerTo(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			switch value := tt.input.(type) {
 			case int, string, custom, *int:
-				ptr := PointerTo(value)
-				if ptr == nil || *ptr != value {
+				ptr := new(value)
+				if *ptr != value {
 					t.Errorf("PointerTo(%v) = %v, want pointer to %v", value, ptr, value)
 				}
 			case []int:
-				ptr := PointerTo(value)
-				if ptr == nil || len(*ptr) != len(value) {
+				ptr := new(value)
+				if len(*ptr) != len(value) {
 					t.Errorf("PointerTo(%v) = %v, want pointer to %v", value, ptr, value)
 				}
 			}

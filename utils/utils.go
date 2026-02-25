@@ -74,5 +74,5 @@ func MaskString(secret string) string {
 
 // PointerTo returns a pointer to the given value.
 func PointerTo[T any](value T) *T {
-	return &value
+	return new(value)
 }
