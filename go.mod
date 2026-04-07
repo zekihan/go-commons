@@ -1,6 +1,6 @@
 module github.com/zekihan/go-commons
 
-go 1.26.1
+go 1.26.2
 
 require (
 	github.com/felixge/httpsnoop v1.0.4
