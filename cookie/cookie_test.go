@@ -69,7 +69,7 @@ func TestGetCookie(t *testing.T) {
 	cookie := resp.Cookies()[0]
 
 	// Mock a request with the cookie
-	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
 	req.AddCookie(cookie)
 
 	var value string

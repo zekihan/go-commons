@@ -60,6 +60,7 @@ func redirect(w http.ResponseWriter, r *http.Request, opts ...string) {
 	isHx := r.Header.Get("Hx-Request") == "true"
 
 	if !isHx {
+		//nolint:gosec // generic method
 		http.Redirect(w, r, url, http.StatusSeeOther)
 	} else {
 		w.Header().Set("Hx-Refresh", "true")

@@ -29,7 +29,12 @@ func TestSendErrorMessage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/nonexistent", http.NoBody)
+			req := httptest.NewRequestWithContext(
+				t.Context(),
+				http.MethodGet,
+				"/nonexistent",
+				http.NoBody,
+			)
 			req.Header.Set("Accept", tt.acceptType)
 
 			rec := httptest.NewRecorder()

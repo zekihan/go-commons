@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+const MaskedString = "****"
+
 var ErrNegativeLength = errors.New("length cannot be negative")
 
 func RandString(nByte int) (string, error) {
@@ -66,10 +68,10 @@ func MaskString(secret string) string {
 	}
 
 	if len(secret) <= defaultUnmaskedStringLength {
-		return "****"
+		return MaskedString
 	}
 
-	return secret[:defaultUnmaskedStringLength] + "****"
+	return secret[:defaultUnmaskedStringLength] + MaskedString
 }
 
 // PointerTo returns a pointer to the given value.

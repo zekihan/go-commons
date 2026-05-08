@@ -20,7 +20,7 @@ func TestAuth_NoConfAPIKey(t *testing.T) {
 		}
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
@@ -39,7 +39,7 @@ func TestAuth_CorrectHeaderAPIKey(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
 	req.Header.Set("X-Api-Key", "secret")
 
 	rr := httptest.NewRecorder()
@@ -56,7 +56,12 @@ func TestAuth_CorrectQueryAPIKey(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/?apiKey=secret", http.NoBody)
+	req := httptest.NewRequestWithContext(
+		t.Context(),
+		http.MethodGet,
+		"/?apiKey=secret",
+		http.NoBody,
+	)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
@@ -71,7 +76,12 @@ func TestAuth_WrongAPIKey(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/?apiKey=wrong", http.NoBody)
+	req := httptest.NewRequestWithContext(
+		t.Context(),
+		http.MethodGet,
+		"/?apiKey=wrong",
+		http.NoBody,
+	)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
@@ -87,7 +97,7 @@ func TestAuth_BasicAuthPasswordAPIKey(t *testing.T) {
 	}))
 
 	// Any username, password is the API key
-	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
 	auth := "Basic " + base64.StdEncoding.EncodeToString([]byte("anyuser:secret"))
 	req.Header.Set("Authorization", auth)
 
@@ -105,8 +115,8 @@ func TestAuth_CorrectCookieAPIKey(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	req.AddCookie(&http.Cookie{Name: "apiKey", Value: "secret"})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: "apiKey", Value: "secret"}) //nolint:gosec // generic method
 
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)

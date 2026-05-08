@@ -21,7 +21,7 @@ func TestLogging_HandlerCalled(t *testing.T) {
 		w.WriteHeader(http.StatusCreated)
 	}))
 
-	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/test", http.NoBody)
 	req.RemoteAddr = "192.0.2.100:12345" // simulate a request from a specific IP
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -49,7 +49,7 @@ func TestLogging_HandlerCalled_IPUnknown(t *testing.T) {
 		w.WriteHeader(http.StatusCreated)
 	}))
 
-	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/test", http.NoBody)
 	req.RemoteAddr = "300.0.113.1:1234" // simulate invalid IP
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)

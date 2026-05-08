@@ -31,7 +31,7 @@ func TestGetFavicon(t *testing.T) {
 	}
 
 	handler := GetFavicon(tmpFile.Name())
-	req := httptest.NewRequest(http.MethodGet, "/favicon.ico", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/favicon.ico", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)

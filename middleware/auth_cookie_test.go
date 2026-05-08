@@ -17,7 +17,7 @@ func TestAuthHandler_NoAuthEnabled(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -33,7 +33,7 @@ func TestAuthHandler_AuthEnabled_Unauthenticated(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -57,7 +57,7 @@ func TestAuthHandler_AuthEnabled_Authenticated(t *testing.T) {
 		Authenticated: true,
 		ExpireTime:    time.Now().Add(time.Hour),
 	}
-	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
 
 	sessionCookie, err := cookie.CreateNewCookie("cookieKey", sessionCookieObj)
 	if err != nil {
@@ -76,7 +76,7 @@ func TestAuthHandler_AuthEnabled_Authenticated(t *testing.T) {
 }
 
 func TestRedirect(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/some-path", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/some-path", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	redirect(rec, req)
@@ -92,7 +92,7 @@ func TestRedirect(t *testing.T) {
 }
 
 func TestRedirectFromHx(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/some-path", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/some-path", http.NoBody)
 	req.Header.Set("HX-Request", "true")
 
 	rec := httptest.NewRecorder()
@@ -113,7 +113,7 @@ func TestGetCookie_ValidCookie(t *testing.T) {
 		Authenticated: true,
 		ExpireTime:    time.Now().Add(-time.Hour),
 	}
-	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
 
 	sessionCookie, err := cookie.CreateNewCookie("cookieKey", sessionCookieObj)
 	if err != nil {
@@ -137,7 +137,7 @@ func TestGetCookie_ValidCookie(t *testing.T) {
 }
 
 func TestGetCookie_InvalidCookie(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
 
 	result, ok := getCookie(req, "")
 	if ok {

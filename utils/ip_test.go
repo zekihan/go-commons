@@ -1,14 +1,15 @@
 package utils
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
-func newReq(hdrs map[string]string, remoteAddr string) *http.Request {
-	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+func newReq(ctx context.Context, hdrs map[string]string, remoteAddr string) *http.Request {
+	r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/", http.NoBody)
 
 	r.RemoteAddr = remoteAddr
 	for k, v := range hdrs {
@@ -19,7 +20,11 @@ func newReq(hdrs map[string]string, remoteAddr string) *http.Request {
 }
 
 func TestGetIP_XForwardedFor(t *testing.T) {
-	req := newReq(map[string]string{"X-Forwarded-For": "203.0.113.1, 198.51.100.5"}, "")
+	req := newReq(
+		t.Context(),
+		map[string]string{"X-Forwarded-For": "203.0.113.1, 198.51.100.5"},
+		"",
+	)
 
 	ip, err := GetIP(req)
 	if err != nil {
@@ -32,7 +37,7 @@ func TestGetIP_XForwardedFor(t *testing.T) {
 }
 
 func TestGetIP_XRealIP(t *testing.T) {
-	req := newReq(map[string]string{"X-Real-IP": "198.51.100.7"}, "")
+	req := newReq(t.Context(), map[string]string{"X-Real-IP": "198.51.100.7"}, "")
 
 	ip, err := GetIP(req)
 	if err != nil {
@@ -45,7 +50,7 @@ func TestGetIP_XRealIP(t *testing.T) {
 }
 
 func TestGetIP_RemoteAddr_IPv4(t *testing.T) {
-	req := newReq(nil, "192.0.2.5:1234")
+	req := newReq(t.Context(), nil, "192.0.2.5:1234")
 
 	ip, err := GetIP(req)
 	if err != nil {
@@ -58,7 +63,7 @@ func TestGetIP_RemoteAddr_IPv4(t *testing.T) {
 }
 
 func TestGetIP_RemoteAddr_IPv6Loopback(t *testing.T) {
-	req := newReq(nil, "[::1]:8080")
+	req := newReq(t.Context(), nil, "[::1]:8080")
 
 	ip, err := GetIP(req)
 	if err != nil {
@@ -72,7 +77,7 @@ func TestGetIP_RemoteAddr_IPv6Loopback(t *testing.T) {
 
 func TestGetIP_InvalidRemoteAddr_NoPort(t *testing.T) {
 	// No headers and bad RemoteAddr.
-	req := newReq(nil, "badaddr")
+	req := newReq(t.Context(), nil, "badaddr")
 
 	_, err := GetIP(req)
 	if err == nil {
@@ -86,7 +91,7 @@ func TestGetIP_InvalidRemoteAddr_NoPort(t *testing.T) {
 
 func TestGetIP_InvalidRemoteAddrWithPort(t *testing.T) {
 	// No headers and invalid RemoteAddr with port.
-	req := newReq(nil, "invalidaddr:1234")
+	req := newReq(t.Context(), nil, "invalidaddr:1234")
 
 	_, err := GetIP(req)
 	if err == nil {

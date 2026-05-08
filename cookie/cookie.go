@@ -54,6 +54,7 @@ func CreateNewCookie(name string, value any, opts ...string) (*http.Cookie, erro
 		return nil, fmt.Errorf("failed to encode cookie value: %w", err)
 	}
 
+	//nolint:gosec // generic method
 	newCookie := &http.Cookie{
 		Name:     name,
 		Value:    encode,

@@ -7,7 +7,7 @@ import (
 )
 
 func TestGetHealth(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/health", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/health", http.NoBody)
 	rr := httptest.NewRecorder()
 
 	GetHealth(rr, req)

@@ -85,12 +85,12 @@ func TestMaskString(t *testing.T) {
 		expected string
 	}{
 		{"", ""},
-		{"a", "****"},
-		{"ab", "****"},
-		{"abcd", "****"},
+		{"a", MaskedString},
+		{"ab", MaskedString},
+		{"abcd", MaskedString},
 		{"abcde", "abcd****"},
 		{"abcdefgh", "abcd****"},
-		{"1234", "****"},
+		{"1234", MaskedString},
 		{"12345", "1234****"},
 	}
 
