@@ -65,6 +65,6 @@ func TestLogVersionInfoWithTextHandlerInvalidBuildDateProducesZeroTime(t *testin
 	}
 	// zero time formatted appears as 0001-01-01
 	if !strings.Contains(out, "0001-01-01") {
-		t.Fatalf("expected zero build_date in log when BuildDate invalid, got: %q", out)
+		t.Fatalf("expected zero buildDate in log when BuildDate invalid, got: %q", out)
 	}
 }

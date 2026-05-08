@@ -26,8 +26,8 @@ func LogVersionInfo(ctx context.Context) {
 		ctx,
 		"Application version info",
 		slog.String("version", Version),
-		slog.String("build_date", date.Format(time.RFC3339)),
-		slog.String("commit_hash", CommitHash),
-		slog.String("git_tree_state", GitTreeState),
+		slog.String("buildDate", date.Format(time.RFC3339)),
+		slog.String("commitHash", CommitHash),
+		slog.String("gitTreeState", GitTreeState),
 	)
 }
