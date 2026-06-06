@@ -11,7 +11,7 @@ import (
 
 func TestCheckError_NoError(t *testing.T) {
 	rec := httptest.NewRecorder()
-	if CheckError(rec, nil, http.StatusBadRequest) {
+	if CheckError(t.Context(), rec, nil, http.StatusBadRequest) {
 		t.Error("expected false when err is nil")
 	}
 
@@ -28,7 +28,7 @@ var errFail = errors.New("fail")
 
 func TestCheckError_WithError(t *testing.T) {
 	rec := httptest.NewRecorder()
-	if !CheckError(rec, errFail, 418, "msg1", "msg2") {
+	if !CheckError(t.Context(), rec, errFail, 418, "msg1", "msg2") {
 		t.Error("expected true when err occurs")
 	}
 
@@ -74,7 +74,7 @@ func (b *badWriter) WriteString(s string) (int, error) {
 
 func TestWrite_Positive(t *testing.T) {
 	rec := httptest.NewRecorder()
-	if Write(rec, []byte("hello")) {
+	if Write(t.Context(), rec, []byte("hello")) {
 		t.Error("expected false on successful write")
 	}
 
@@ -85,7 +85,7 @@ func TestWrite_Positive(t *testing.T) {
 
 func TestWrite_Error(t *testing.T) {
 	bad := &badWriter{httptest.NewRecorder()}
-	if !Write(bad, []byte("trigger error")) {
+	if !Write(t.Context(), bad, []byte("trigger error")) {
 		t.Error("expected true on write error")
 	}
 
@@ -100,7 +100,7 @@ func TestWrite_Error(t *testing.T) {
 
 func TestWriteString_Positive(t *testing.T) {
 	rec := httptest.NewRecorder()
-	if WriteString(rec, "world") {
+	if WriteString(t.Context(), rec, "world") {
 		t.Error("expected false on successful writeString")
 	}
 
@@ -111,7 +111,7 @@ func TestWriteString_Positive(t *testing.T) {
 
 func TestWriteString_Error(t *testing.T) {
 	bad := &badWriter{httptest.NewRecorder()}
-	if !WriteString(bad, "trigger error") {
+	if !WriteString(t.Context(), bad, "trigger error") {
 		t.Error("expected true on writeString error")
 	}
 

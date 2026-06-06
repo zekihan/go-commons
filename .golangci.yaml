@@ -24,7 +24,7 @@ formatters:
       sections:
         - standard # Standard section: captures all standard packages.
         - default # Default section: contains all imports that could not be matched to another section type.
-        - prefix(github.com/org/project) # Custom section: groups all imports with the specified Prefix.
+        - prefix(github.com/zekihan/go-commons) # Custom section: groups all imports with the specified Prefix.
         - blank # Blank section: contains all blank imports. This section is not present unless explicitly enabled.
         - dot # Dot section: contains all dot imports. This section is not present unless explicitly enabled.
         - alias # Alias section: contains all alias imports. This section is not present unless explicitly enabled.
@@ -194,6 +194,8 @@ linters:
         - w *Writer
         - r *bufio.Reader
         - w *bufio.Writer
+        - r io.Reader
+        - w io.Writer
     importas:
       no-unaliased: true
       alias:

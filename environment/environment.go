@@ -37,12 +37,22 @@ func LoadEnvironmentFile(others ...string) error {
 }
 
 func loadFile(filePath string) error {
-	f, err := os.Stat(filePath)
-	if !os.IsNotExist(err) && !f.IsDir() {
-		err = godotenv.Overload(filePath)
-		if err != nil {
-			return fmt.Errorf("error loading %s file: %w", filePath, err)
+	info, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
 		}
+
+		return fmt.Errorf("error checking %s file: %w", filePath, err)
+	}
+
+	if info.IsDir() {
+		return nil
+	}
+
+	err = godotenv.Overload(filePath)
+	if err != nil {
+		return fmt.Errorf("error loading %s file: %w", filePath, err)
 	}
 
 	return nil

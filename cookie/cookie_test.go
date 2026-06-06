@@ -38,10 +38,14 @@ func TestCreateNewCookie(t *testing.T) {
 }
 
 func TestSetCookie(t *testing.T) {
-	w := httptest.NewRecorder()
-	SetCookie(w, nil, "testCookie", "testValue", "lax")
+	rec := httptest.NewRecorder()
 
-	resp := w.Result()
+	err := SetCookie(rec, nil, "testCookie", "testValue", "lax")
+	if err != nil {
+		t.Fatalf("SetCookie returned error: %v", err)
+	}
+
+	resp := rec.Result()
 	cookie := resp.Cookies()[0]
 
 	if cookie.Name != "testCookie" {
@@ -63,9 +67,14 @@ func TestSetCookie(t *testing.T) {
 
 func TestGetCookie(t *testing.T) {
 	// Create a cookie
-	w := httptest.NewRecorder()
-	SetCookie(w, nil, "testCookie", "testValue", "lax")
-	resp := w.Result()
+	rec := httptest.NewRecorder()
+
+	err := SetCookie(rec, nil, "testCookie", "testValue", "lax")
+	if err != nil {
+		t.Fatalf("SetCookie returned error: %v", err)
+	}
+
+	resp := rec.Result()
 	cookie := resp.Cookies()[0]
 
 	// Mock a request with the cookie
@@ -74,7 +83,7 @@ func TestGetCookie(t *testing.T) {
 
 	var value string
 
-	err := GetCookie(req, "testCookie", &value)
+	err = GetCookie(req, "testCookie", &value)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

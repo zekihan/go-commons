@@ -7,8 +7,9 @@ import (
 )
 
 func TestGetPing(t *testing.T) {
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/ready", http.NoBody)
 	rr := httptest.NewRecorder()
-	GetReady(rr, nil)
+	GetReady(rr, req)
 
 	// Verify status code.
 	if rr.Code != http.StatusOK {

@@ -65,6 +65,6 @@ func redirect(w http.ResponseWriter, r *http.Request, opts ...string) {
 	} else {
 		w.Header().Set("Hx-Refresh", "true")
 		w.WriteHeader(http.StatusUnauthorized)
-		web.WriteString(w, "Unauthorized")
+		web.WriteString(r.Context(), w, "Unauthorized")
 	}
 }

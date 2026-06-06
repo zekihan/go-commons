@@ -9,21 +9,27 @@ import (
 	"github.com/zekihan/go-commons/utils"
 )
 
-func Write(w http.ResponseWriter, b []byte) bool {
+func Write(ctx context.Context, w http.ResponseWriter, b []byte) bool {
 	_, err := w.Write(b)
 
-	return CheckError(w, err, http.StatusInternalServerError, "failed to write string")
+	return CheckError(ctx, w, err, http.StatusInternalServerError, "failed to write string")
 }
 
-func WriteString(w http.ResponseWriter, s string) bool {
+func WriteString(ctx context.Context, w http.ResponseWriter, s string) bool {
 	_, err := io.WriteString(w, s)
 
-	return CheckError(w, err, http.StatusInternalServerError, "failed to write string")
+	return CheckError(ctx, w, err, http.StatusInternalServerError, "failed to write string")
 }
 
 // CheckError checks the error, and writes to w if there is an error.  Returns
 // true if err is non-nil.
-func CheckError(w http.ResponseWriter, err error, statusCode int, messages ...string) bool {
+func CheckError(
+	ctx context.Context,
+	w http.ResponseWriter,
+	err error,
+	statusCode int,
+	messages ...string,
+) bool {
 	if err != nil {
 		err = utils.WrapErrors(err, messages...)
 		if err == nil {
@@ -36,14 +42,14 @@ func CheckError(w http.ResponseWriter, err error, statusCode int, messages ...st
 
 		if statusCode >= http.StatusInternalServerError {
 			slog.ErrorContext(
-				context.Background(),
+				ctx,
 				"Returned non 2xx http code",
 				slog.Int("httpCode", statusCode),
 				slog.Any("error", err),
 			)
 		} else {
 			slog.WarnContext(
-				context.Background(),
+				ctx,
 				"Returned non 2xx http code",
 				slog.Int("httpCode", statusCode),
 				slog.Any("error", err),

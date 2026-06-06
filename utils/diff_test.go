@@ -2,47 +2,9 @@ package utils
 
 import (
 	"bytes"
-	"os"
 	"strings"
 	"testing"
 )
-
-func captureOutput(t *testing.T, f func()) string {
-	t.Helper()
-
-	readPipe, writePipe, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
-	}
-
-	old := os.Stdout
-	os.Stdout = writePipe
-
-	t.Cleanup(func() {
-		os.Stdout = old
-	})
-
-	f()
-
-	err = writePipe.Close()
-	if err != nil {
-		t.Fatalf("failed to close write pipe: %v", err)
-	}
-
-	var buf bytes.Buffer
-
-	_, err = buf.ReadFrom(readPipe)
-	if err != nil {
-		t.Fatalf("failed to read from pipe: %v", err)
-	}
-
-	err = readPipe.Close()
-	if err != nil {
-		t.Fatalf("failed to close read pipe: %v", err)
-	}
-
-	return buf.String()
-}
 
 func TestDiffLines(t *testing.T) {
 	tests := []struct {
@@ -120,9 +82,9 @@ func TestDiffLines(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out := captureOutput(t, func() {
-				DiffLines(tt.a, tt.b)
-			})
+			var buf bytes.Buffer
+			DiffLines(&buf, tt.a, tt.b)
+			out := buf.String()
 
 			lines := strings.Split(out, "\n")
 			if len(lines) != len(tt.expected) {

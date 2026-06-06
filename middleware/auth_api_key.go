@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"crypto/subtle"
 	"net/http"
 	"strings"
 )
@@ -29,7 +30,7 @@ func GetAuthMiddlewareForSingleAPIKey(apiKey string) func(http.Handler) http.Han
 			return true
 		}
 
-		return userAPIKey == apiKey
+		return subtle.ConstantTimeCompare([]byte(userAPIKey), []byte(apiKey)) == 1
 	})
 }
 

@@ -20,32 +20,28 @@ const (
 	BlockKeyLength = 32
 )
 
+func parseSameSite(s string) http.SameSite {
+	switch s {
+	case "strict":
+		return http.SameSiteStrictMode
+	case "none":
+		return http.SameSiteNoneMode
+	case "lax":
+		return http.SameSiteLaxMode
+	default:
+		return http.SameSiteLaxMode
+	}
+}
+
 func CreateNewCookie(name string, value any, opts ...string) (*http.Cookie, error) {
 	sameSite := http.SameSiteLaxMode
 	path := "/"
 
-	switch len(opts) {
-	case 1:
-		sameSiteStr := opts[0]
-		switch sameSiteStr {
-		case "lax":
-			sameSite = http.SameSiteLaxMode
-		case "strict":
-			sameSite = http.SameSiteStrictMode
-		case "none":
-			sameSite = http.SameSiteNoneMode
-		}
-	case 2: //nolint:mnd // false positive
-		sameSiteStr := opts[0]
-		switch sameSiteStr {
-		case "lax":
-			sameSite = http.SameSiteLaxMode
-		case "strict":
-			sameSite = http.SameSiteStrictMode
-		case "none":
-			sameSite = http.SameSiteNoneMode
-		}
+	if len(opts) >= 1 {
+		sameSite = parseSameSite(opts[0])
+	}
 
+	if len(opts) >= 2 { //nolint:mnd // false positive
 		path = opts[1]
 	}
 
@@ -88,13 +84,21 @@ func getSecureCookie() *securecookie.SecureCookie {
 	return sc
 }
 
-func SetCookie(w http.ResponseWriter, _ *http.Request, name string, value any, opts ...string) {
+func SetCookie(
+	w http.ResponseWriter,
+	_ *http.Request,
+	name string,
+	value any,
+	opts ...string,
+) error {
 	c, err := CreateNewCookie(name, value, opts...)
 	if err != nil {
-		return
+		return err
 	}
 
 	http.SetCookie(w, c)
+
+	return nil
 }
 
 func GetCookie[T any](r *http.Request, name string, value *T) error {

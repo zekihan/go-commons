@@ -2,10 +2,11 @@ package utils
 
 import (
 	"fmt"
+	"io"
 	"strings"
 )
 
-func DiffLines(a, b string) {
+func DiffLines(w io.Writer, a, b string) {
 	aLines := strings.Split(a, "\n")
 	if len(aLines) == 1 && aLines[0] == "" {
 		aLines = []string{}
@@ -21,16 +22,16 @@ func DiffLines(a, b string) {
 
 	for _, common := range lcs {
 		for i < len(aLines) && aLines[i] != common {
-			fmt.Printf("- %s\n", aLines[i])
+			fmt.Fprintf(w, "- %s\n", aLines[i])
 			i++
 		}
 
 		for j < len(bLines) && bLines[j] != common {
-			fmt.Printf("+ %s\n", bLines[j])
+			fmt.Fprintf(w, "+ %s\n", bLines[j])
 			j++
 		}
 
-		fmt.Printf("  %s\n", common)
+		fmt.Fprintf(w, "  %s\n", common)
 
 		i++
 		j++
@@ -38,12 +39,12 @@ func DiffLines(a, b string) {
 
 	// Handle remaining lines.
 	for i < len(aLines) {
-		fmt.Printf("- %s\n", aLines[i])
+		fmt.Fprintf(w, "- %s\n", aLines[i])
 		i++
 	}
 
 	for j < len(bLines) {
-		fmt.Printf("+ %s\n", bLines[j])
+		fmt.Fprintf(w, "+ %s\n", bLines[j])
 		j++
 	}
 }

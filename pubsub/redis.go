@@ -31,17 +31,6 @@ func NewRedisPubSub(opts *UniversalPubSubOptions) *RedisPubSub {
 func (ps *RedisPubSub) Publish(ctx context.Context, channel, message string) error {
 	chKey := getChannelName(ps.prefix, channel)
 
-	if ps.rdb == nil {
-		slog.WarnContext(
-			ctx,
-			"Redis client is nil, cannot publish message",
-			slog.String("channel", chKey),
-			slog.String("message", message),
-		)
-
-		return nil
-	}
-
 	err := ps.rdb.Publish(ctx, chKey, message).Err()
 	if err != nil {
 		return fmt.Errorf("error publishing message to %s: %w", chKey, err)

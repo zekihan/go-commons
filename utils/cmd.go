@@ -1,9 +1,9 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"os/exec"
 )
@@ -39,56 +39,37 @@ func RunCmdInPath(ctx context.Context, cmdPath, cmd string, env []string, args .
 }
 
 func runCmd(ctx context.Context, command *exec.Cmd) error {
-	stderrPipe, err := command.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to get stderr pipe: %w", err)
-	}
+	var stdout, stderr bytes.Buffer
 
-	stdoutPipe, err := command.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to get stdout pipe: %w", err)
-	}
-
-	err = command.Start()
-	if err != nil {
-		return fmt.Errorf("failed to start command: %w", err)
-	}
+	command.Stdout = &stdout
+	command.Stderr = &stderr
 
 	commandStr := command.String()
 
-	stderr, err := io.ReadAll(stderrPipe)
-	if err != nil {
-		return fmt.Errorf("failed to read stderr: %w", err)
-	}
+	// Run reads both streams concurrently, so a command producing large output
+	// on stdout and stderr at the same time cannot deadlock.
+	runErr := command.Run()
 
-	if len(stderr) > 0 {
-		stderrStr := string(stderr)
+	if stderr.Len() > 0 {
 		slog.InfoContext(
 			ctx,
 			"Running command",
 			slog.String("command", commandStr),
-			slog.String("stderr", stderrStr),
+			slog.String("stderr", stderr.String()),
 		)
 	}
 
-	stdout, err := io.ReadAll(stdoutPipe)
-	if err != nil {
-		return fmt.Errorf("failed to read stdout: %w", err)
-	}
-
-	if len(stdout) > 0 {
-		stdoutStr := string(stdout)
+	if stdout.Len() > 0 {
 		slog.DebugContext(
 			ctx,
 			"Running command",
 			slog.String("command", commandStr),
-			slog.String("stdout", stdoutStr),
+			slog.String("stdout", stdout.String()),
 		)
 	}
 
-	err = command.Wait()
-	if err != nil {
-		return fmt.Errorf("command failed: %w", err)
+	if runErr != nil {
+		return fmt.Errorf("command failed: %w", runErr)
 	}
 
 	return nil

@@ -2,6 +2,7 @@ package environment
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -77,5 +78,35 @@ func TestLoadEnvironmentFileMissingFiles(t *testing.T) {
 	err := LoadEnvironmentFile()
 	if err != nil {
 		t.Errorf("expected no error when env files are missing, got %v", err)
+	}
+}
+
+func TestLoadFileDirectory(t *testing.T) {
+	dir := t.TempDir()
+
+	err := loadFile(dir)
+	if err != nil {
+		t.Errorf("expected nil for directory path, got %v", err)
+	}
+}
+
+func TestLoadFileStatError(t *testing.T) {
+	// Traversing through a regular file yields a non-NotExist stat error
+	// (ENOTDIR). loadFile must surface it instead of dereferencing a nil
+	// FileInfo and panicking.
+	dir := t.TempDir()
+
+	regular := filepath.Join(dir, "file")
+
+	err := os.WriteFile(regular, []byte("x"), 0o600)
+	if err != nil {
+		t.Fatalf("failed to create file: %v", err)
+	}
+
+	bogus := filepath.Join(regular, "sub")
+
+	err = loadFile(bogus)
+	if err == nil {
+		t.Errorf("expected error for stat failure, got nil")
 	}
 }

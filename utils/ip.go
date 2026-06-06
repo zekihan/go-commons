@@ -42,7 +42,7 @@ func getIPFromXForwardedFor(r *http.Request) (string, error) {
 	splitIps := strings.Split(ips, ",")
 
 	if len(splitIps) > 0 {
-		netIP := net.ParseIP(splitIps[0])
+		netIP := net.ParseIP(strings.TrimSpace(splitIps[0]))
 		if netIP != nil {
 			return netIP.String(), nil
 		}
