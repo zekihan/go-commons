@@ -66,6 +66,69 @@ func TestLogging_HandlerCalled_IPUnknown(t *testing.T) {
 	checkLogs(t, logStr, http.MethodPost, "unknown", http.StatusCreated, "/test")
 }
 
+func TestLogging_SkippedPaths(t *testing.T) {
+	paths := []string{"/ping", "/health", "/ready", "/api/ping", "/api/health", "/api/ready"}
+
+	for _, path := range paths {
+		t.Run(path, func(t *testing.T) {
+			var logBuffer bytes.Buffer
+			slog.SetDefault(slog.New(slog.NewTextHandler(&logBuffer, nil)))
+
+			called := false
+			handler := Logging(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				called = true
+
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, http.NoBody)
+			req.RemoteAddr = "127.0.0.1:1234"
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
+
+			if !called {
+				t.Errorf("expected handler to be called for skipped path %s", path)
+			}
+
+			if strings.Contains(logBuffer.String(), "HTTP request") {
+				t.Errorf(
+					"expected no log entry for skipped path %s, got: %s",
+					path,
+					logBuffer.String(),
+				)
+			}
+		})
+	}
+}
+
+func TestLogging_SkippedContains(t *testing.T) {
+	var logBuffer bytes.Buffer
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logBuffer, nil)))
+
+	called := false
+	handler := Logging(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// defaultSkippedContains matches the literal path "favicon.ico" via exact equality,
+	// so we set URL.Path directly rather than passing it as the request URL.
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
+	req.URL.Path = "favicon.ico"
+	req.RemoteAddr = "127.0.0.1:1234"
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if !called {
+		t.Error("expected handler to be called for favicon.ico path")
+	}
+
+	if strings.Contains(logBuffer.String(), "HTTP request") {
+		t.Errorf("expected no log entry for favicon.ico, got: %s", logBuffer.String())
+	}
+}
+
 func checkLogs(t *testing.T, logStr, method, ip string, status int, path string) {
 	t.Helper()
 

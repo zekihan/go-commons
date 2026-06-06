@@ -102,6 +102,63 @@ func TestMaskString(t *testing.T) {
 	}
 }
 
+func TestFilter_Ints(t *testing.T) {
+	input := []int{1, 2, 3, 4, 5, 6}
+	result := Filter(input, func(n int) bool { return n%2 == 0 })
+
+	if len(result) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(result))
+	}
+
+	for _, v := range result {
+		if v%2 != 0 {
+			t.Errorf("expected even number, got %d", v)
+		}
+	}
+}
+
+func TestFilter_Strings(t *testing.T) {
+	input := []string{"apple", "banana", "apricot", "cherry"}
+	result := Filter(input, func(s string) bool { return s[0] == 'a' })
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(result))
+	}
+
+	if result[0] != "apple" || result[1] != "apricot" {
+		t.Errorf("unexpected result: %v", result)
+	}
+}
+
+func TestFilter_Empty(t *testing.T) {
+	result := Filter([]int{}, func(n int) bool { return n > 0 })
+	if len(result) != 0 {
+		t.Errorf("expected empty result, got %v", result)
+	}
+}
+
+func TestFilter_KeepNone(t *testing.T) {
+	result := Filter([]int{1, 2, 3}, func(n int) bool { return false })
+	if len(result) != 0 {
+		t.Errorf("expected empty result, got %v", result)
+	}
+}
+
+func TestFilter_KeepAll(t *testing.T) {
+	input := []int{1, 2, 3}
+	result := Filter(input, func(n int) bool { return true })
+
+	if len(result) != len(input) {
+		t.Fatalf("expected %d items, got %d", len(input), len(result))
+	}
+
+	for i, v := range result {
+		if v != input[i] {
+			t.Errorf("result[%d] = %d, want %d", i, v, input[i])
+		}
+	}
+}
+
 func TestPointerTo(t *testing.T) {
 	type custom struct {
 		Y string
