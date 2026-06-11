@@ -4,7 +4,7 @@ go 1.26.4
 
 require (
 	github.com/alicebob/miniredis/v2 v2.38.0
-	github.com/felixge/httpsnoop v1.0.4
+	github.com/felixge/httpsnoop v1.1.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/securecookie v1.1.2
 	github.com/joho/godotenv v1.5.1
