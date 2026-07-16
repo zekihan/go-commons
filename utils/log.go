@@ -20,13 +20,11 @@ type LoggerConfig struct {
 func InitLogger(cfg *LoggerConfig) {
 	c := resolveLoggerConfig(cfg)
 
-	handler := tint.NewHandler(c.Writer, &tint.Options{
+	slog.SetDefault(slog.New(tint.NewTextHandler(c.Writer, &tint.Options{
 		Level:      c.Level,
 		AddSource:  c.AddSource,
 		TimeFormat: time.RFC3339,
-	})
-
-	slog.SetDefault(slog.New(handler))
+	})))
 }
 
 func resolveLoggerConfig(cfg *LoggerConfig) LoggerConfig {
