@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/lmittmann/tint"
+	"github.com/mattn/go-isatty"
 )
 
 type LoggerConfig struct {
@@ -24,7 +25,17 @@ func InitLogger(cfg *LoggerConfig) {
 		Level:      c.Level,
 		AddSource:  c.AddSource,
 		TimeFormat: time.RFC3339,
+		NoColor:    !writerSupportsColor(c.Writer),
 	})))
+}
+
+func writerSupportsColor(writer io.Writer) bool {
+	file, ok := writer.(interface{ Fd() uintptr })
+	if !ok {
+		return false
+	}
+
+	return isatty.IsTerminal(file.Fd()) || isatty.IsCygwinTerminal(file.Fd())
 }
 
 func resolveLoggerConfig(cfg *LoggerConfig) LoggerConfig {

@@ -1,8 +1,10 @@
 package utils
 
 import (
+	"bytes"
 	"log/slog"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -28,6 +30,17 @@ func TestLoggerInitializesWithCustomLevelAndSource(t *testing.T) {
 	}
 
 	InitLogger(cfg)
+}
+
+func TestLoggerDoesNotWriteANSIColorCodes(t *testing.T) {
+	var output bytes.Buffer
+	InitLogger(&LoggerConfig{Writer: &output})
+
+	slog.Info("Test log message")
+
+	if strings.Contains(output.String(), "\x1b[") {
+		t.Fatalf("log output contains ANSI color codes: %q", output.String())
+	}
 }
 
 func TestLoggerFailsWithInvalidWriter(t *testing.T) {

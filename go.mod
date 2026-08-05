@@ -9,6 +9,7 @@ require (
 	github.com/gorilla/securecookie v1.1.2
 	github.com/joho/godotenv v1.5.1
 	github.com/lmittmann/tint v1.2.0
+	github.com/mattn/go-isatty v0.0.24
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/tdewolff/minify/v2 v2.24.14
 )
