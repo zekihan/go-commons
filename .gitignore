@@ -56,3 +56,7 @@ tmp/
 *.ipr
 *.iws
 .idea/**/.gitignore
+
+# Local IDE settings and environment overrides
+.idea/
+.override.env
