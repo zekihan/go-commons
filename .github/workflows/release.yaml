@@ -3,49 +3,59 @@ name: Release
 on:
   push:
     tags:
-      - "*"
+      - "v[0-9]*.[0-9]*.[0-9]*"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Check Out The Repo
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v7.0.0
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: true
           cache-dependency-path: go.sum
 
       - name: Set up GoReleaser
-        uses: goreleaser/goreleaser-action@v7.2.3
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
           install-only: true
 
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends make build-essential
-          if [ -f .github/scripts/install_build_deps.sh ]; then
-            echo "Installing build dependencies from .github/scripts/install_build_deps.sh"
-            bash .github/scripts/install_build_deps.sh
-          else
-            echo "No build dependencies script found, skipping."
-          fi
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
 
-      - name: Make build
+      - name: Validate
         run: |
-          make release
+          make lint
+          make test
+          go build ./...
+          goreleaser check
+          git diff --exit-code
+
+      - name: Validate release tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$RELEASE_TAG" = "v$(tr -d '[:space:]' < VERSION)"
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+
+      - name: Publish release
+        run: make release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
