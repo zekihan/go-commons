@@ -91,7 +91,8 @@ func (ps *RedisPubSub) Listen(
 				}
 			case <-ctx.Done():
 				slog.InfoContext(
-					ctx, "Unsubscribing from channel", slog.String("channel", chKey))
+					ctx, "Unsubscribing from channel", slog.String("channel", chKey),
+				)
 
 				err := sub.Close()
 				if err != nil {
@@ -106,7 +107,8 @@ func (ps *RedisPubSub) Listen(
 				}
 
 				slog.InfoContext(
-					ctx, "Unsubscribed from channel", slog.String("channel", chKey))
+					ctx, "Unsubscribed from channel", slog.String("channel", chKey),
+				)
 
 				return
 			}
