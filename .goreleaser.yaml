@@ -15,7 +15,7 @@ builds:
 
 changelog:
   disable: false
-  use: github
+  use: git
   sort: asc
   groups:
     - title: Features
