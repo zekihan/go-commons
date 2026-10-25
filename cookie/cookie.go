@@ -64,6 +64,8 @@ func CreateNewCookie(name string, value any, opts ...string) (*http.Cookie, erro
 	return newCookie, nil
 }
 
+// InitSecureCookie configures the process-wide codec on first use. Call it before
+// using cookies to guarantee configured keys; otherwise lazy initialization may win.
 func InitSecureCookie(hashKey, blockKey []byte) {
 	scOnce.Do(func() {
 		sc = securecookie.New(hashKey, blockKey)
@@ -71,15 +73,11 @@ func InitSecureCookie(hashKey, blockKey []byte) {
 }
 
 func getSecureCookie() *securecookie.SecureCookie {
-	if sc == nil {
+	scOnce.Do(func() {
 		hashKey := securecookie.GenerateRandomKey(HashKeyLength)
 		blockKey := securecookie.GenerateRandomKey(BlockKeyLength)
-		InitSecureCookie(hashKey, blockKey)
-
-		if sc == nil {
-			panic("SecureCookie initialization failed")
-		}
-	}
+		sc = securecookie.New(hashKey, blockKey)
+	})
 
 	return sc
 }
