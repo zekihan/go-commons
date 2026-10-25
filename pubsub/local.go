@@ -2,14 +2,23 @@ package pubsub
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 )
 
+type localSubscriber struct {
+	messages chan string
+	done     <-chan struct{}
+}
+
+// LocalPubSub delivers each publication to every listener registered when Publish starts.
+// Listeners handle messages serially; concurrent publications have no defined order.
+// A slow handler applies backpressure to Publish until it receives the next message.
 type LocalPubSub struct {
-	ch     map[string]chan string
-	prefix string
-	mu     sync.RWMutex
+	subscribers map[string]map[*localSubscriber]struct{}
+	prefix      string
+	mu          sync.RWMutex
 }
 
 func NewLocalPubSub(opts *UniversalPubSubOptions) *LocalPubSub {
@@ -18,27 +27,42 @@ func NewLocalPubSub(opts *UniversalPubSubOptions) *LocalPubSub {
 	}
 
 	return &LocalPubSub{
-		ch:     make(map[string]chan string),
-		prefix: opts.Prefix,
+		subscribers: make(map[string]map[*localSubscriber]struct{}),
+		prefix:      opts.Prefix,
 	}
 }
 
+// Publish waits for each subscriber to receive the message, not for handlers to finish.
+// Canceled subscribers are skipped. Context cancellation can leave a partial delivery;
+// messages are not retained when there are no subscribers.
 func (ps *LocalPubSub) Publish(ctx context.Context, channel, message string) error {
 	chKey := getChannelName(ps.prefix, channel)
+	subscribers := ps.getSubscribers(chKey)
 
-	ch := ps.getChannel(chKey)
-
-	if ch == nil {
-		slog.WarnContext(ctx, "No subscribers for channel", slog.String("channel", chKey))
-
-		return nil
+	err := ctx.Err()
+	if err != nil {
+		return fmt.Errorf("publish to %s: %w", chKey, err)
 	}
 
-	ch <- message
+	if len(subscribers) == 0 {
+		slog.WarnContext(ctx, "No subscribers for channel", slog.String("channel", chKey))
+	}
+
+	for _, subscriber := range subscribers {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("publish to %s: %w", chKey, ctx.Err())
+		case <-subscriber.done:
+		case subscriber.messages <- message:
+		}
+	}
 
 	return nil
 }
 
+// Listen registers an independent subscriber before returning. Its cancel function is
+// idempotent and synchronously unregisters only this subscriber. An in-flight handler
+// may finish after cancellation; its context is canceled. Cancel never waits for it.
 func (ps *LocalPubSub) Listen(
 	channel string,
 	handler func(ctx context.Context, payload string) error,
@@ -46,16 +70,15 @@ func (ps *LocalPubSub) Listen(
 	chKey := getChannelName(ps.prefix, channel)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	ch := ps.getOrCreateChannel(chKey)
+	subscriber := &localSubscriber{messages: make(chan string), done: ctx.Done()}
+	ps.addSubscriber(chKey, subscriber)
 	slog.InfoContext(ctx, "Subscribed to channel", slog.String("channel", chKey))
 
 	go func() {
 		for {
 			select {
-			case msg, ok := <-ch:
-				if !ok {
-					slog.WarnContext(ctx, "Channel closed", slog.String("channel", chKey))
-
+			case msg := <-subscriber.messages:
+				if ctx.Err() != nil {
 					return
 				}
 
@@ -77,43 +100,47 @@ func (ps *LocalPubSub) Listen(
 					)
 				}
 			case <-ctx.Done():
-				slog.InfoContext(ctx, "Unsubscribing from channel", slog.String("channel", chKey))
-				ps.mu.Lock()
-				close(ch)
-				delete(ps.ch, chKey)
-				ps.mu.Unlock()
-				slog.InfoContext(ctx, "Unsubscribed from channel", slog.String("channel", chKey))
-
 				return
 			}
 		}
 	}()
 
-	return cancel
+	return func() {
+		ps.mu.Lock()
+		defer ps.mu.Unlock()
+
+		cancel()
+		delete(ps.subscribers[chKey], subscriber)
+
+		if len(ps.subscribers[chKey]) == 0 {
+			delete(ps.subscribers, chKey)
+		}
+	}
 }
 
-func (ps *LocalPubSub) getOrCreateChannel(channel string) chan string {
+func (ps *LocalPubSub) addSubscriber(channel string, subscriber *localSubscriber) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 
-	if ps.ch == nil {
-		ps.ch = make(map[string]chan string)
+	if ps.subscribers == nil {
+		ps.subscribers = make(map[string]map[*localSubscriber]struct{})
 	}
 
-	if _, ok := ps.ch[channel]; !ok {
-		ps.ch[channel] = make(chan string)
+	if ps.subscribers[channel] == nil {
+		ps.subscribers[channel] = make(map[*localSubscriber]struct{})
 	}
 
-	return ps.ch[channel]
+	ps.subscribers[channel][subscriber] = struct{}{}
 }
 
-func (ps *LocalPubSub) getChannel(channel string) chan string {
+func (ps *LocalPubSub) getSubscribers(channel string) []*localSubscriber {
 	ps.mu.RLock()
 	defer ps.mu.RUnlock()
 
-	if ps.ch == nil {
-		return nil
+	subscribers := make([]*localSubscriber, 0, len(ps.subscribers[channel]))
+	for subscriber := range ps.subscribers[channel] {
+		subscribers = append(subscribers, subscriber)
 	}
 
-	return ps.ch[channel]
+	return subscribers
 }
