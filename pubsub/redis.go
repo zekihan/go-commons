@@ -4,9 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
+
+const legacyStartupTimeout = 5 * time.Second
 
 type RedisPubSub struct {
 	rdb    redis.UniversalClient
@@ -50,15 +54,79 @@ func (ps *RedisPubSub) Listen(
 	channel string,
 	handler func(ctx context.Context, payload string) error,
 ) context.CancelFunc {
+	// Legacy Listen starts asynchronously; use ListenReady to observe initialization.
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		startup, stop := context.WithTimeout(ctx, legacyStartupTimeout)
+		defer stop()
+
+		closeListener, err := ps.ListenReady(startup, channel, handler)
+		if err != nil {
+			return
+		}
+
+		<-ctx.Done()
+		closeListener()
+	}()
+
+	return cancel
+}
+
+// ListenReady waits for the server's subscription acknowledgement. The context bounds
+// initialization only; call the returned cancel function to stop a successful listener.
+// This guarantees initialization, not durable or exactly-once delivery.
+//
+//nolint:gocyclo // Startup and cancellation paths must each release the subscription.
+func (ps *RedisPubSub) ListenReady(ctx context.Context, channel string,
+	handler func(context.Context, string) error,
+) (context.CancelFunc, error) {
 	chKey := getChannelName(ps.prefix, channel)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	if _, ok := ctx.Deadline(); !ok {
+		return nil, ErrDeadlineRequired
+	}
+
+	err := ctx.Err()
+	if err != nil {
+		return nil, fmt.Errorf("subscribe to %s: %w", chKey, err)
+	}
+
+	listenerCtx, cancel := context.WithCancel(context.Background())
 	sub := ps.rdb.Subscribe(ctx, chKey)
+
+	var once sync.Once
+
+	closeSub := func() { once.Do(func() { cancel(); _ = sub.Close() }) }
+	stop := context.AfterFunc(ctx, closeSub)
+
+	ack, err := sub.Receive(ctx)
+	if !stop() || ctx.Err() != nil {
+		closeSub()
+
+		return nil, fmt.Errorf("subscribe to %s: %w", chKey, ctx.Err())
+	}
+
+	if err != nil {
+		closeSub()
+
+		return nil, fmt.Errorf("subscribe to %s: %w", chKey, err)
+	}
+
+	if confirmation, ok := ack.(*redis.Subscription); !ok || confirmation.Kind != "subscribe" ||
+		confirmation.Channel != chKey {
+		closeSub()
+
+		return nil, fmt.Errorf("%w for %s: %v", ErrUnexpectedAcknowledgement, chKey, ack)
+	}
+
 	ch := sub.Channel()
 
-	slog.InfoContext(ctx, "Subscribed to channel", slog.String("channel", chKey))
+	slog.InfoContext(listenerCtx, "Subscribed to channel", slog.String("channel", chKey))
+	ctx = listenerCtx //nolint:contextcheck // Listener outlives its startup context.
 
 	go func() {
+		defer closeSub()
+
 		for {
 			select {
 			case msg, ok := <-ch:
@@ -69,6 +137,10 @@ func (ps *RedisPubSub) Listen(
 						slog.String("channel", chKey),
 					)
 
+					return
+				}
+
+				if ctx.Err() != nil {
 					return
 				}
 
@@ -90,30 +162,10 @@ func (ps *RedisPubSub) Listen(
 					)
 				}
 			case <-ctx.Done():
-				slog.InfoContext(
-					ctx, "Unsubscribing from channel", slog.String("channel", chKey),
-				)
-
-				err := sub.Close()
-				if err != nil {
-					slog.ErrorContext(
-						ctx,
-						"Error unsubscribing from channel",
-						slog.String("channel", chKey),
-						slog.Any("error", err),
-					)
-
-					return
-				}
-
-				slog.InfoContext(
-					ctx, "Unsubscribed from channel", slog.String("channel", chKey),
-				)
-
 				return
 			}
 		}
 	}()
 
-	return cancel
+	return closeSub, nil
 }

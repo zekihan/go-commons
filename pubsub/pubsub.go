@@ -2,8 +2,16 @@ package pubsub
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/redis/go-redis/v9"
+)
+
+var (
+	ErrDeadlineRequired          = errors.New("listen requires a context deadline")
+	ErrReadinessUnsupported      = errors.New("pubsub backend does not support readiness")
+	ErrUnexpectedAcknowledgement = errors.New("unexpected subscription acknowledgement")
 )
 
 type PubSuber interface {
@@ -46,4 +54,24 @@ func getChannelName(prefix, channel string) string {
 	}
 
 	return channel
+}
+
+// ListenReady waits for listener initialization. Ctx must have a deadline and only
+// applies to initialization. Cancel the returned function to stop the listener.
+func (ps *UniversalPubSub) ListenReady(ctx context.Context, channel string,
+	handler func(context.Context, string) error,
+) (context.CancelFunc, error) {
+	ready, ok := ps.PubSuber.(interface {
+		ListenReady(ctx context.Context, channel string, handler func(context.Context, string) error) (context.CancelFunc, error) //nolint:lll // Interface signature remains readable.
+	})
+	if !ok {
+		return nil, ErrReadinessUnsupported
+	}
+
+	cancel, err := ready.ListenReady(ctx, channel, handler)
+	if err != nil {
+		return nil, fmt.Errorf("initialize listener: %w", err)
+	}
+
+	return cancel, nil
 }
