@@ -3,6 +3,7 @@ package pubsub
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"testing"
@@ -346,5 +347,101 @@ func TestRedisPubSub_StartupTimeout(t *testing.T) {
 	if !errors.Is(err, context.DeadlineExceeded) &&
 		(!errors.As(err, &netErr) || !netErr.Timeout()) {
 		t.Fatalf("expected timeout, got %v", err)
+	}
+}
+
+// closeObservedConn lets the test verify cleanup after stalled initialization resumes.
+type closeObservedConn struct {
+	net.Conn
+
+	closed chan struct{}
+	once   sync.Once
+}
+
+func (conn *closeObservedConn) Close() error {
+	conn.once.Do(func() { close(conn.closed) })
+
+	err := conn.Conn.Close()
+	if err != nil {
+		return fmt.Errorf("close test connection: %w", err)
+	}
+
+	return nil
+}
+
+func TestRedisPubSub_CancelDuringHandshake(t *testing.T) {
+	mr := miniredis.RunT(t)
+	entered, release, closed := make(chan struct{}), make(chan struct{}), make(chan struct{})
+
+	var releaseOnce sync.Once
+	defer releaseOnce.Do(func() { close(release) })
+
+	mr.Server().SetPreHook(func(_ *server.Peer, cmd string, _ ...string) bool {
+		if cmd == "HELLO" {
+			close(entered)
+			<-release
+		}
+
+		return false
+	})
+	client := redis.NewClient(&redis.Options{
+		Addr: mr.Addr(), ReadTimeout: 5 * time.Second, MaxRetries: -1,
+		Dialer: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			var dialer net.Dialer
+
+			conn, err := dialer.DialContext(ctx, network, addr)
+			if err != nil {
+				return nil, fmt.Errorf("dial test server: %w", err)
+			}
+
+			return &closeObservedConn{Conn: conn, closed: closed}, nil
+		},
+	})
+
+	t.Cleanup(func() { _ = client.Close() })
+
+	ps := NewRedisPubSub(&UniversalPubSubOptions{Redis: client})
+
+	startup, stop := context.WithTimeout(t.Context(), 10*time.Second)
+	defer stop()
+
+	result := make(chan error, 1)
+
+	go func() {
+		cancel, err := ps.ListenReady(startup, "events", func(context.Context, string) error {
+			t.Error("handler called after canceled startup")
+
+			return nil
+		})
+		if cancel != nil {
+			cancel()
+		}
+
+		result <- err
+	}()
+
+	select {
+	case <-entered:
+	case <-startup.Done():
+		t.Fatal("handshake did not start")
+	}
+
+	stop()
+
+	select {
+	case err := <-result:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("expected cancellation, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("cancellation blocked on Redis handshake")
+	}
+
+	releaseOnce.Do(func() { close(release) })
+
+	select {
+	case <-closed:
+	case <-time.After(time.Second):
+		t.Fatal("startup connection was not closed after handshake resumed")
 	}
 }
