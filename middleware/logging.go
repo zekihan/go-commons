@@ -48,7 +48,8 @@ func Logging(handler http.Handler) http.Handler {
 		slog.InfoContext(r.Context(), "HTTP request",
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
-			slog.String("query", r.URL.RawQuery),
+			// Query names and values can contain credentials, even when malformed.
+			slog.Bool("hasQuery", r.URL.RawQuery != "" || r.URL.ForceQuery),
 			slog.String("ip", ip),
 			slog.Int("status", metrics.Code),
 			slog.Int64("size", metrics.Written),
