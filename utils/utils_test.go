@@ -3,6 +3,7 @@ package utils
 import (
 	"go/constant"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestRandString(t *testing.T) {
@@ -99,6 +100,34 @@ func TestMaskString(t *testing.T) {
 		if got != tt.expected {
 			t.Errorf("MaskString(%q) = %q, want %q", tt.input, got, tt.expected)
 		}
+	}
+}
+
+func TestMaskStringUTF8(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"Short", "秘密", MaskedString}, //nolint:gosmopolitan // Three-byte UTF-8 fixture.
+		{"FiveRunes", "şifre", "şifr" + MaskedString},
+		{"AtLimit", "şifr", MaskedString},
+		{"MixedPrefix", "abc🔑secret", "abc🔑" + MaskedString},
+		//nolint:gosmopolitan // Three-byte UTF-8 prefix and suffix.
+		{"MultibytePrefix", "日本語の秘密", "日本語の" + MaskedString},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := MaskString(tt.input)
+			if !utf8.ValidString(got) {
+				t.Errorf("MaskString(%q) returned invalid UTF-8: %q", tt.input, got)
+			}
+
+			if got != tt.expected {
+				t.Errorf("MaskString(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
 	}
 }
 

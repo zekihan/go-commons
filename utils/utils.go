@@ -62,16 +62,19 @@ func RemoveEmptyItems(list []string) []string {
 
 const defaultUnmaskedStringLength = 4
 
+// MaskString reveals the first four runes of longer strings and fully masks
+// nonempty strings of four runes or fewer.
 func MaskString(secret string) string {
 	if secret == "" {
 		return ""
 	}
 
-	if len(secret) <= defaultUnmaskedStringLength {
+	runes := []rune(secret)
+	if len(runes) <= defaultUnmaskedStringLength {
 		return MaskedString
 	}
 
-	return secret[:defaultUnmaskedStringLength] + MaskedString
+	return string(runes[:defaultUnmaskedStringLength]) + MaskedString
 }
 
 // PointerTo returns a pointer to the given value.
