@@ -92,31 +92,62 @@ func (ps *RedisPubSub) ListenReady(ctx context.Context, channel string,
 	}
 
 	listenerCtx, cancel := context.WithCancel(context.Background())
-	sub := ps.rdb.Subscribe(ctx, chKey)
+	// Create the subscription before doing network I/O so cancellation can own cleanup.
+	sub := ps.rdb.Subscribe(ctx)
 
 	var once sync.Once
 
 	closeSub := func() { once.Do(func() { cancel(); _ = sub.Close() }) }
 	stop := context.AfterFunc(ctx, closeSub)
 
-	ack, err := sub.Receive(ctx)
+	// Subscribe can block in connection initialization even when ctx is canceled.
+	// Keep that work off the caller; closeSub will release its connection once
+	// go-redis releases the subscription lock.
+	type startupResult struct {
+		ack any
+		err error
+	}
+
+	result := make(chan startupResult, 1)
+
+	go func() {
+		err := sub.Subscribe(ctx, chKey)
+		if err != nil {
+			result <- startupResult{err: err}
+
+			return
+		}
+
+		ack, err := sub.Receive(ctx)
+		result <- startupResult{ack: ack, err: err}
+	}()
+
+	var startup startupResult
+	select {
+	case <-ctx.Done():
+		// The cancellation callback owns cleanup; Close may wait for Subscribe.
+		return nil, fmt.Errorf("subscribe to %s: %w", chKey, ctx.Err())
+	case startup = <-result:
+	}
+
 	if !stop() || ctx.Err() != nil {
 		closeSub()
 
 		return nil, fmt.Errorf("subscribe to %s: %w", chKey, ctx.Err())
 	}
 
-	if err != nil {
+	if startup.err != nil {
 		closeSub()
 
-		return nil, fmt.Errorf("subscribe to %s: %w", chKey, err)
+		return nil, fmt.Errorf("subscribe to %s: %w", chKey, startup.err)
 	}
 
-	if confirmation, ok := ack.(*redis.Subscription); !ok || confirmation.Kind != "subscribe" ||
+	if confirmation, ok := startup.ack.(*redis.Subscription); !ok ||
+		confirmation.Kind != "subscribe" ||
 		confirmation.Channel != chKey {
 		closeSub()
 
-		return nil, fmt.Errorf("%w for %s: %v", ErrUnexpectedAcknowledgement, chKey, ack)
+		return nil, fmt.Errorf("%w for %s: %v", ErrUnexpectedAcknowledgement, chKey, startup.ack)
 	}
 
 	ch := sub.Channel()
