@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -72,6 +73,32 @@ func TestGetIP_RemoteAddr_IPv6Loopback(t *testing.T) {
 
 	if ip != "127.0.0.1" {
 		t.Errorf("got %q, want %q", ip, "127.0.0.1")
+	}
+}
+
+func TestGetIP_RemoteAddr_IPv6Zone(t *testing.T) {
+	t.Parallel()
+
+	for _, zone := range []string{"eth0", "3"} {
+		t.Run(zone, func(t *testing.T) {
+			t.Parallel()
+
+			remote := &net.TCPAddr{
+				IP:   net.ParseIP("fe80::1234"),
+				Port: 8080,
+				Zone: zone,
+			}
+			req := newReq(t.Context(), nil, remote.String())
+
+			ip, err := GetIP(req)
+			if err != nil {
+				t.Fatalf("GetIP(%q): %v", remote, err)
+			}
+
+			if ip != "fe80::1234" {
+				t.Errorf("got %q, want fe80::1234", ip)
+			}
+		})
 	}
 }
 
