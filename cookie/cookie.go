@@ -33,6 +33,9 @@ func parseSameSite(s string) http.SameSite {
 	}
 }
 
+// CreateNewCookie encodes value and validates the cookie's HTTP attributes.
+// Invalid names or paths return an error rather than being silently dropped or
+// altered when the cookie is serialized by net/http.
 func CreateNewCookie(name string, value any, opts ...string) (*http.Cookie, error) {
 	sameSite := http.SameSiteLaxMode
 	path := "/"
@@ -59,6 +62,11 @@ func CreateNewCookie(name string, value any, opts ...string) (*http.Cookie, erro
 		Secure:   true,
 		HttpOnly: true,
 		SameSite: sameSite,
+	}
+
+	err = newCookie.Valid()
+	if err != nil {
+		return nil, fmt.Errorf("invalid cookie attributes: %w", err)
 	}
 
 	return newCookie, nil

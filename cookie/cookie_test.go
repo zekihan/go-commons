@@ -92,3 +92,38 @@ func TestGetCookie(t *testing.T) {
 		t.Errorf("expected cookie value to be 'testValue', got %s", value)
 	}
 }
+
+func TestCookieRejectsInvalidAttributes(t *testing.T) {
+	tests := []struct {
+		label string
+		name  string
+		path  string
+	}{
+		{label: "empty name", name: "", path: "/"},
+		{label: "space in name", name: "bad name", path: "/"},
+		{label: "delimiter in name", name: "bad;name", path: "/"},
+		{label: "newline in name", name: "bad\nname", path: "/"},
+		{label: "semicolon in path", name: "session", path: "/private;admin"},
+		{label: "newline in path", name: "session", path: "/private\nadmin"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.label, func(t *testing.T) {
+			cookie, err := CreateNewCookie(tt.name, "value", "lax", tt.path)
+			if err == nil || cookie != nil {
+				t.Errorf("CreateNewCookie = (%v, %v), want nil cookie and error", cookie, err)
+			}
+
+			rec := httptest.NewRecorder()
+
+			err = SetCookie(rec, nil, tt.name, "value", "lax", tt.path)
+			if err == nil {
+				t.Error("SetCookie returned success for invalid attributes")
+			}
+
+			if headers := rec.Header().Values("Set-Cookie"); len(headers) != 0 {
+				t.Errorf("SetCookie emitted headers for invalid attributes: %v", headers)
+			}
+		})
+	}
+}
