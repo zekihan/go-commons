@@ -118,6 +118,36 @@ func (ps *LocalPubSub) Listen(
 	}
 }
 
+// ListenReady registers the listener before returning. Ctx bounds initialization only.
+//
+//nolint:contextcheck // Initialization context intentionally does not control listener lifetime.
+func (ps *LocalPubSub) ListenReady(ctx context.Context, channel string,
+	handler func(context.Context, string) error,
+) (context.CancelFunc, error) {
+	if _, ok := ctx.Deadline(); !ok {
+		return nil, ErrDeadlineRequired
+	}
+
+	err := ctx.Err()
+	if err != nil {
+		return nil, fmt.Errorf("initialize listener: %w", err)
+	}
+
+	cancel := ps.Listen(
+		channel,
+		handler,
+	)
+
+	err = ctx.Err()
+	if err != nil {
+		cancel()
+
+		return nil, fmt.Errorf("initialize listener: %w", err)
+	}
+
+	return cancel, nil
+}
+
 func (ps *LocalPubSub) addSubscriber(channel string, subscriber *localSubscriber) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
