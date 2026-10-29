@@ -3,11 +3,13 @@ package utils
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os/exec"
 )
 
+// RunCmd runs a command and preserves both execution and context errors on failure.
 func RunCmd(ctx context.Context, cmd string, env []string, args ...string) error {
 	command := exec.CommandContext(ctx, cmd, args...)
 	if env != nil {
@@ -22,6 +24,7 @@ func RunCmd(ctx context.Context, cmd string, env []string, args ...string) error
 	return nil
 }
 
+// RunCmdInPath runs a command in cmdPath with the same error contract as RunCmd.
 func RunCmdInPath(ctx context.Context, cmdPath, cmd string, env []string, args ...string) error {
 	command := exec.CommandContext(ctx, cmd, args...)
 	if env != nil {
@@ -69,7 +72,7 @@ func runCmd(ctx context.Context, command *exec.Cmd) error {
 	}
 
 	if runErr != nil {
-		return fmt.Errorf("command failed: %w", runErr)
+		return fmt.Errorf("command failed: %w", errors.Join(runErr, ctx.Err()))
 	}
 
 	return nil
