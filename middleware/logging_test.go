@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -36,6 +37,10 @@ func TestLogging_HandlerCalled(t *testing.T) {
 
 	logStr := logBuffer.String()
 	checkLogs(t, logStr, http.MethodPost, "192.0.2.100", http.StatusCreated, "/test")
+
+	if !strings.Contains(logStr, "hasQuery=false") {
+		t.Errorf("expected absent query metadata, got %s", logStr)
+	}
 }
 
 func TestLogging_HandlerCalled_IPUnknown(t *testing.T) {
@@ -146,5 +151,66 @@ func checkLogs(t *testing.T, logStr, method, ip string, status int, path string)
 
 	if !strings.Contains(logStr, path) {
 		t.Errorf("expected log to contain path '%s', got %s", path, logStr)
+	}
+}
+
+func TestLogging_QueryPrivacy(t *testing.T) {
+	queries := []string{
+		"apiKey=SECRET_SENTINEL",
+		"api_key=SECRET_SENTINEL&APIKEY=SECOND_SENTINEL",
+		"access_token=SECRET_SENTINEL&refreshToken=SECOND_SENTINEL",
+		"code=SECRET_SENTINEL&authorization_code=SECOND_SENTINEL",
+		"password=SECRET_SENTINEL&passwd=SECOND_SENTINEL&pwd=THIRD_SENTINEL",
+		"%61piKey=%53ECRET_SENTINEL&apiKey=SECOND_SENTINEL",
+		"apiKey=SECRET_SENTINEL;password=SECOND_SENTINEL&broken=%zz",
+		"unexpected=SECRET_SENTINEL&SECRET_SENTINEL=value",
+		"filter=unread&page=2",
+		"",
+	}
+
+	for _, query := range queries {
+		t.Run(query, func(t *testing.T) {
+			var buffer bytes.Buffer
+
+			previous := slog.Default()
+
+			slog.SetDefault(slog.New(slog.NewJSONHandler(&buffer, nil)))
+			t.Cleanup(func() { slog.SetDefault(previous) })
+
+			request := httptest.NewRequestWithContext(
+				t.Context(), http.MethodGet, "/reports?"+query, http.NoBody,
+			)
+			request.RemoteAddr = "192.0.2.1:1234"
+			handler := Logging(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.RawQuery != query {
+					t.Errorf("middleware changed the query: %q", r.URL.RawQuery)
+				}
+
+				w.WriteHeader(http.StatusAccepted)
+			}))
+			handler.ServeHTTP(httptest.NewRecorder(), request)
+
+			logOutput := buffer.String()
+			if strings.Contains(logOutput, "SENTINEL") || strings.Contains(logOutput, "unread") {
+				t.Fatalf("query contents leaked into logs: %s", logOutput)
+			}
+
+			var record map[string]any
+
+			err := json.Unmarshal(buffer.Bytes(), &record)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if _, exists := record["query"]; exists {
+				t.Error("raw query must not be logged")
+			}
+
+			if record["hasQuery"] != true {
+				t.Error("expected query presence metadata, including an empty trailing query")
+			}
+
+			checkLogs(t, logOutput, http.MethodGet, "192.0.2.1", http.StatusAccepted, "/reports")
+		})
 	}
 }
