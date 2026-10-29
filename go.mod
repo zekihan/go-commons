@@ -11,7 +11,7 @@ require (
 	github.com/lmittmann/tint v1.2.1
 	github.com/mattn/go-isatty v0.0.24
 	github.com/redis/go-redis/v9 v9.23.0
-	github.com/tdewolff/minify/v2 v2.24.23
+	github.com/tdewolff/minify/v2 v2.24.24
 )
 
 require (
