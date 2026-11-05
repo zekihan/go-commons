@@ -62,6 +62,8 @@ func (ps *RedisPubSub) Listen(
 
 		closeListener, err := ps.ListenReady(startup, channel, handler)
 		if err != nil {
+			slog.Error("Failed to initialize Redis listener", slog.Any("error", err))
+
 			return
 		}
 
