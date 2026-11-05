@@ -4,7 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"log/slog"
 	"net"
+	"runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -443,5 +447,160 @@ func TestRedisPubSub_CancelDuringHandshake(t *testing.T) {
 	case <-closed:
 	case <-time.After(time.Second):
 		t.Fatal("startup connection was not closed after handshake resumed")
+	}
+}
+
+func TestRedisPubSub_LegacyListen(t *testing.T) {
+	mr := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+
+	t.Cleanup(func() { _ = client.Close() })
+
+	ps := NewRedisPubSub(&UniversalPubSubOptions{Redis: client})
+	messages := make(chan string, 1)
+	stopped := make(chan struct{})
+
+	cancel := ps.Listen("events", func(ctx context.Context, payload string) error {
+		messages <- payload
+
+		<-ctx.Done()
+		close(stopped)
+
+		return nil
+	})
+	defer cancel()
+
+	ctx, stop := context.WithTimeout(t.Context(), 5*time.Second)
+	defer stop()
+
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		counts, err := client.PubSubNumSub(ctx, "events").Result()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if counts["events"] == 1 {
+			break
+		}
+
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			t.Fatal("subscription did not start")
+		}
+	}
+
+	err := ps.Publish(ctx, "events", "hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case msg := <-messages:
+		if msg != "hello" {
+			t.Fatalf("got %q", msg)
+		}
+	case <-ctx.Done():
+		t.Fatal("message not delivered")
+	}
+
+	cancel()
+
+	select {
+	case <-stopped:
+	case <-ctx.Done():
+		t.Fatal("listener did not stop")
+	}
+}
+
+type startupLogHandler struct {
+	slog.Handler
+
+	records chan slog.Record
+}
+
+func (h *startupLogHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func (h *startupLogHandler) Handle(
+	_ context.Context,
+	record slog.Record, //nolint:gocritic // The Handler interface takes a value.
+) error {
+	if record.Message == "Failed to initialize Redis listener" {
+		select {
+		case h.records <- record:
+		default:
+		}
+	}
+
+	return nil
+}
+
+func TestRedisPubSub_LegacyStartupFailure(t *testing.T) {
+	mr := miniredis.RunT(t)
+	addr := mr.Addr()
+	mr.Close()
+
+	client := redis.NewClient(&redis.Options{Addr: addr, MaxRetries: -1, DialTimeout: time.Second})
+
+	t.Cleanup(func() { _ = client.Close() })
+
+	records := make(chan slog.Record, 1)
+	old := slog.Default()
+	oldWriter := log.Writer()
+
+	slog.SetDefault(
+		slog.New(
+			&startupLogHandler{Handler: slog.DiscardHandler, records: records},
+		),
+	)
+	defer func() { slog.SetDefault(old); log.SetOutput(oldWriter) }()
+
+	ps := NewRedisPubSub(&UniversalPubSubOptions{Redis: client})
+	called := make(chan struct{}, 1)
+
+	cancel := ps.Listen(
+		"events",
+		func(context.Context, string) error {
+			called <- struct{}{}
+
+			return nil
+		},
+	)
+	defer cancel()
+
+	select {
+	case record := <-records:
+		if record.Level != slog.LevelError ||
+			record.Message != "Failed to initialize Redis listener" {
+			t.Fatalf("unexpected log: %v", record)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("startup failure was not logged")
+	}
+
+	select {
+	case <-called:
+		t.Fatal("handler called on startup failure")
+	default:
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+
+	for {
+		buf := make([]byte, 1<<20)
+
+		n := runtime.Stack(buf, true)
+		if !strings.Contains(string(buf[:n]), "pubsub.(*RedisPubSub).Listen.func1") {
+			break
+		}
+
+		if time.Now().After(deadline) {
+			t.Fatal("legacy listener goroutine did not exit")
+		}
+
+		runtime.Gosched()
 	}
 }
