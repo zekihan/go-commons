@@ -45,3 +45,5 @@ make lint    # tidy + golangci-lint run --fix
 make test    # run all tests with -race
 make audit   # vet + staticcheck + govulncheck + tests
 ```
+
+Publishing and manual recovery: [Publishing](docs/publishing.md).
