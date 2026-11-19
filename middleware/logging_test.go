@@ -106,31 +106,43 @@ func TestLogging_SkippedPaths(t *testing.T) {
 	}
 }
 
-func TestLogging_SkippedContains(t *testing.T) {
-	var logBuffer bytes.Buffer
-	slog.SetDefault(slog.New(slog.NewTextHandler(&logBuffer, nil)))
-
-	called := false
-	handler := Logging(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		called = true
-
-		w.WriteHeader(http.StatusOK)
-	}))
-
-	// defaultSkippedContains matches the literal path "favicon.ico" via exact equality,
-	// so we set URL.Path directly rather than passing it as the request URL.
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
-	req.URL.Path = "favicon.ico"
-	req.RemoteAddr = "127.0.0.1:1234"
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	if !called {
-		t.Error("expected handler to be called for favicon.ico path")
+func TestLogging_Favicon(t *testing.T) {
+	tests := []struct {
+		path   string
+		logged bool
+	}{
+		{path: "/favicon.ico", logged: false},
+		{path: "/app/favicon.ico?v=1", logged: false},
+		{path: "/app/custom-favicon.ico", logged: true},
+		{path: "/app/favicon.ico/details", logged: true},
+		{path: "/app/favicon.ico/", logged: true},
 	}
 
-	if strings.Contains(logBuffer.String(), "HTTP request") {
-		t.Errorf("expected no log entry for favicon.ico, got: %s", logBuffer.String())
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			var logBuffer bytes.Buffer
+
+			previous := slog.Default()
+
+			slog.SetDefault(slog.New(slog.NewTextHandler(&logBuffer, nil)))
+			t.Cleanup(func() { slog.SetDefault(previous) })
+
+			handler := Logging(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusAccepted)
+			}))
+
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, tt.path, http.NoBody)
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
+
+			if rr.Code != http.StatusAccepted {
+				t.Errorf("expected status %d, got %d", http.StatusAccepted, rr.Code)
+			}
+
+			if got := strings.Contains(logBuffer.String(), "HTTP request"); got != tt.logged {
+				t.Errorf("logged = %t, want %t, output: %s", got, tt.logged, logBuffer.String())
+			}
+		})
 	}
 }
 
