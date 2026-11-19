@@ -111,6 +111,36 @@ func TestSecureCookieConfiguredKeys(t *testing.T) {
 	group.Wait()
 }
 
+func TestSecureCookieRetainsConfiguredKeys(t *testing.T) {
+	resetSecureCookie(t)
+
+	hashKey := bytes.Repeat([]byte{1}, HashKeyLength)
+	blockKey := bytes.Repeat([]byte{2}, BlockKeyLength)
+	InitSecureCookie(hashKey, blockKey)
+
+	cookie, err := CreateNewCookie("configured", "value")
+	if err != nil {
+		t.Fatalf("CreateNewCookie failed: %v", err)
+	}
+
+	clear(hashKey)
+	clear(blockKey)
+
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
+	request.AddCookie(cookie)
+
+	var value string
+
+	err = GetCookie(request, cookie.Name, &value)
+	if err != nil {
+		t.Fatalf("GetCookie after clearing the input buffers: %v", err)
+	}
+
+	if value != "value" {
+		t.Errorf("unexpected decoded value %q", value)
+	}
+}
+
 func assertCookieRoundTrip(t *testing.T) {
 	t.Helper()
 
