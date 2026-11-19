@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"log/slog"
 	"os/exec"
+	"time"
 )
 
 // RunCmd runs a command and preserves both execution and context errors on failure.
+// It allows one second to drain output after the process exits or the context is done.
 func RunCmd(ctx context.Context, cmd string, env []string, args ...string) error {
 	command := exec.CommandContext(ctx, cmd, args...)
 	if env != nil {
@@ -46,6 +48,9 @@ func runCmd(ctx context.Context, command *exec.Cmd) error {
 
 	command.Stdout = &stdout
 	command.Stderr = &stderr
+
+	// Descendants can keep output pipes open after the command exits or is canceled.
+	command.WaitDelay = time.Second
 
 	commandStr := command.String()
 

@@ -2,6 +2,7 @@ package session
 
 import (
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -23,6 +24,15 @@ func TestIsExpired(t *testing.T) {
 	if !cookie.IsExpired() {
 		t.Errorf("Expected cookie to be expired")
 	}
+}
+
+func TestIsExpiredAtExpirationTime(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		cookie := Cookie{ExpireTime: time.Now()}
+		if !cookie.IsExpired() {
+			t.Fatal("cookie should be expired at its expiration time")
+		}
+	})
 }
 
 func TestNewCookie(t *testing.T) {

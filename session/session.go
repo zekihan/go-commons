@@ -42,5 +42,5 @@ func NewCookie() *Cookie {
 }
 
 func (s *Cookie) IsExpired() bool {
-	return s.ExpireTime.Before(time.Now())
+	return !time.Now().Before(s.ExpireTime)
 }
