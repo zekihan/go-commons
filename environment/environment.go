@@ -3,6 +3,8 @@ package environment
 import (
 	"fmt"
 	"os"
+	"runtime"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -50,9 +52,33 @@ func loadFile(filePath string) error {
 		return nil
 	}
 
-	err = godotenv.Overload(filePath)
+	variables, err := godotenv.Read(filePath)
 	if err != nil {
 		return fmt.Errorf("error loading %s file: %w", filePath, err)
+	}
+
+	// Reject malformed entries before applying any variables from this file.
+	for key, value := range variables {
+		if key == "" || (runtime.GOOS != "plan9" && strings.ContainsRune(value, 0)) {
+			return fmt.Errorf(
+				"invalid environment variable %q in %s: %w",
+				key,
+				filePath,
+				os.ErrInvalid,
+			)
+		}
+	}
+
+	for key, value := range variables {
+		err = os.Setenv(key, value)
+		if err != nil {
+			return fmt.Errorf(
+				"error setting environment variable %q from %s: %w",
+				key,
+				filePath,
+				err,
+			)
+		}
 	}
 
 	return nil

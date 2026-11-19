@@ -1,8 +1,11 @@
 package environment
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -78,6 +81,47 @@ func TestLoadEnvironmentFileMissingFiles(t *testing.T) {
 	err := LoadEnvironmentFile()
 	if err != nil {
 		t.Errorf("expected no error when env files are missing, got %v", err)
+	}
+}
+
+func TestLoadEnvironmentFileRejectsInvalidEntry(t *testing.T) {
+	tests := []struct {
+		name  string
+		entry string
+	}{
+		{name: "empty name", entry: "=bad\n"},
+		{name: "NUL in value", entry: "GO_COMMONS_TEST_INVALID=bad\x00value\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if runtime.GOOS == "plan9" && tt.name == "NUL in value" {
+				t.Skip("Plan 9 supports NUL in environment values")
+			}
+
+			const (
+				key          = "GO_COMMONS_TEST_ENV"
+				overrideFile = ".override.env"
+			)
+
+			t.Chdir(t.TempDir())
+			t.Setenv(key, "original")
+			createTempEnvFile(t, ".env", key+"=base\n")
+			createTempEnvFile(t, overrideFile, key+"=override\n"+tt.entry)
+
+			err := LoadEnvironmentFile()
+			if !errors.Is(err, os.ErrInvalid) || !strings.Contains(err.Error(), overrideFile) {
+				t.Fatalf(
+					"LoadEnvironmentFile() = %v, want invalid entry error for %s",
+					err,
+					overrideFile,
+				)
+			}
+
+			if got := os.Getenv(key); got != "base" {
+				t.Errorf("%s = %q, want base value after rejecting the override file", key, got)
+			}
+		})
 	}
 }
 
