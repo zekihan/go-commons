@@ -13,6 +13,8 @@ func SendErrorMessage(w http.ResponseWriter, r *http.Request, status int) {
 
 	ctx := r.Context()
 
+	w.Header().Add("Vary", "Accept")
+
 	switch web.GetAcceptType(r) {
 	case web.AcceptTypeHTML:
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
