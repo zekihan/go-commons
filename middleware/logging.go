@@ -3,6 +3,7 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/felixge/httpsnoop"
@@ -19,10 +20,6 @@ var defaultSkippedPaths = []string{
 	"/api/ready",
 }
 
-var defaultSkippedContains = []string{
-	"favicon.ico",
-}
-
 func Logging(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if utils.Contains(defaultSkippedPaths, r.URL.Path) {
@@ -31,7 +28,7 @@ func Logging(handler http.Handler) http.Handler {
 			return
 		}
 
-		if utils.Contains(defaultSkippedContains, r.URL.Path) {
+		if path := r.URL.Path; strings.HasSuffix(path, "/favicon.ico") || path == "favicon.ico" {
 			handler.ServeHTTP(w, r)
 
 			return
