@@ -31,8 +31,8 @@ go get github.com/zekihan/go-commons
   `GetAcceptType`. `CheckError` logs via `slog` and writes `http.Error`. Ready-made
   handlers live in `web/ping`, `web/health`, `web/ready`, `web/favicon`, and
   `web/errorroutes`.
-- **`environment`** — Loads `.env`, then `.override.env`, then any extra files via
-  `godotenv.Overload`.
+- **`environment`** — Parses `.env`, `.override.env`, and any extra files with
+  `godotenv`. Later files override earlier values. Invalid entries return an error.
 - **`utils`** — Miscellaneous helpers: `InitLogger` (tint-colored `slog`),
   `WrapErrors`, `RandString`, generics (`Contains`, `Filter`, `PointerTo`), IP
   extraction, HTML/JS minification, version info, and command execution.

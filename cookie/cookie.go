@@ -3,6 +3,7 @@ package cookie
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"sync"
 	"time"
 
@@ -74,9 +75,10 @@ func CreateNewCookie(name string, value any, opts ...string) (*http.Cookie, erro
 
 // InitSecureCookie configures the process-wide codec on first use. Call it before
 // using cookies to guarantee configured keys; otherwise lazy initialization may win.
+// The codec keeps its own copy of the supplied keys.
 func InitSecureCookie(hashKey, blockKey []byte) {
 	scOnce.Do(func() {
-		sc = securecookie.New(hashKey, blockKey)
+		sc = securecookie.New(slices.Clone(hashKey), slices.Clone(blockKey))
 	})
 }
 
