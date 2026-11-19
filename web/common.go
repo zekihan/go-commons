@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -10,13 +11,33 @@ import (
 )
 
 func Write(ctx context.Context, w http.ResponseWriter, b []byte) bool {
-	_, err := w.Write(b)
+	written, err := w.Write(b)
 
-	return CheckError(ctx, w, err, http.StatusInternalServerError, "failed to write string")
+	return checkWriteError(ctx, w, written, err)
 }
 
 func WriteString(ctx context.Context, w http.ResponseWriter, s string) bool {
-	_, err := io.WriteString(w, s)
+	written, err := io.WriteString(w, s)
+
+	return checkWriteError(ctx, w, written, err)
+}
+
+func checkWriteError(ctx context.Context, w http.ResponseWriter, written int, err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Both cases can occur after the response has been committed.
+	if written > 0 || errors.Is(err, http.ErrContentLength) {
+		slog.ErrorContext(
+			ctx,
+			"Failed to write response body",
+			slog.Int("bytesWritten", written),
+			slog.Any("error", err),
+		)
+
+		return true
+	}
 
 	return CheckError(ctx, w, err, http.StatusInternalServerError, "failed to write string")
 }
