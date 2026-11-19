@@ -3,6 +3,7 @@ package errorroutes
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -53,9 +54,12 @@ func TestGetNotFound(t *testing.T) {
 				"/nonexistent",
 				http.NoBody,
 			)
-			req.Header.Set("Accept", tt.acceptType)
+			if tt.acceptType != "" {
+				req.Header.Set("Accept", tt.acceptType)
+			}
 
 			rec := httptest.NewRecorder()
+			rec.Header().Set("Vary", "Accept-Encoding")
 
 			GetNotFound(rec, req)
 
@@ -64,6 +68,11 @@ func TestGetNotFound(t *testing.T) {
 
 			if res.StatusCode != tt.expectedStatus {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, res.StatusCode)
+			}
+
+			const wantVary = "Accept-Encoding, Accept"
+			if vary := strings.Join(res.Header.Values("Vary"), ", "); vary != wantVary {
+				t.Errorf("Vary = %q, want %q", vary, wantVary)
 			}
 
 			body := rec.Body.String()
