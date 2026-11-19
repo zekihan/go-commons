@@ -20,4 +20,11 @@ func TestGetHealth(t *testing.T) {
 	if rr.Body.String() != expected {
 		t.Errorf("GetHealth returned unexpected body: got %q want %q", rr.Body.String(), expected)
 	}
+
+	res := rr.Result()
+	defer res.Body.Close()
+
+	if got := res.Header.Get("Cache-Control"); got != "no-store" {
+		t.Errorf("Cache-Control = %q, want no-store", got)
+	}
 }
