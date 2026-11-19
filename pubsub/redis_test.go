@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -447,6 +448,85 @@ func TestRedisPubSub_CancelDuringHandshake(t *testing.T) {
 	case <-closed:
 	case <-time.After(time.Second):
 		t.Fatal("startup connection was not closed after handshake resumed")
+	}
+}
+
+func TestRedisPubSub_CancelDuringReconnect(t *testing.T) {
+	mr := miniredis.NewMiniRedis()
+	t.Cleanup(mr.Close)
+
+	resume, allowReconnect := context.WithCancel(t.Context())
+	defer allowReconnect()
+
+	reconnecting, closed := make(chan struct{}), make(chan struct{})
+
+	var dials atomic.Int32
+
+	client := redis.NewClient(&redis.Options{
+		Dialer: func(context.Context, string, string) (net.Conn, error) {
+			reconnectingNow := dials.Add(1) == 2
+			if reconnectingNow {
+				close(reconnecting)
+				<-resume.Done()
+			}
+
+			conn, err := mr.Dial()
+			if err != nil {
+				return nil, fmt.Errorf("dial test server: %w", err)
+			}
+
+			if reconnectingNow {
+				return &closeObservedConn{Conn: conn, closed: closed}, nil
+			}
+
+			return conn, nil
+		},
+	})
+
+	t.Cleanup(func() { _ = client.Close() })
+
+	ps := NewRedisPubSub(&UniversalPubSubOptions{Redis: client})
+
+	startup, stop := context.WithTimeout(t.Context(), time.Second)
+	defer stop()
+
+	cancel, err := ps.ListenReady(startup, "events", func(context.Context, string) error {
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(cancel)
+
+	stop()
+	mr.Close()
+
+	select {
+	case <-reconnecting:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Redis did not attempt to reconnect after disconnect")
+	}
+
+	canceled := make(chan struct{})
+
+	go func() {
+		cancel()
+		close(canceled)
+	}()
+
+	select {
+	case <-canceled:
+	case <-time.After(time.Second):
+		t.Error("cancel blocked on the Redis reconnect")
+	}
+
+	allowReconnect()
+
+	select {
+	case <-closed:
+	case <-time.After(2 * time.Second):
+		t.Error("Redis connection was not closed after reconnect resumed")
 	}
 }
 

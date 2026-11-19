@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -121,5 +122,93 @@ func TestWriteString_Error(t *testing.T) {
 
 	if bad.Body.String() != "bad write\nfailed to write string\n" {
 		t.Errorf("expected %q, got %q", "bad write\nfailed to write string\n", bad.Body.String())
+	}
+}
+
+type partialWriter struct{ *httptest.ResponseRecorder }
+
+func (pw *partialWriter) Write(data []byte) (int, error) {
+	return pw.WriteString(string(data))
+}
+
+func (pw *partialWriter) WriteString(data string) (int, error) {
+	var writeErr error
+
+	if pw.Body.Len() == 0 {
+		data = data[:min(len(data), 2)]
+		writeErr = errBadWrite
+	}
+
+	n, err := pw.ResponseRecorder.WriteString(data)
+	if err != nil {
+		return n, fmt.Errorf("record test response: %w", err)
+	}
+
+	return n, writeErr
+}
+
+func TestWrite_PartialError(t *testing.T) {
+	const payload = `{"ok":true}`
+
+	tests := []struct {
+		write func(context.Context, http.ResponseWriter) bool
+		name  string
+	}{
+		{
+			name: "bytes",
+			write: func(ctx context.Context, w http.ResponseWriter) bool {
+				return Write(ctx, w, []byte(payload))
+			},
+		},
+		{
+			name: "string",
+			write: func(ctx context.Context, w http.ResponseWriter) bool {
+				return WriteString(ctx, w, payload)
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			writer := &partialWriter{httptest.NewRecorder()}
+			writer.Header().Set("Content-Type", "application/json")
+
+			if !test.write(t.Context(), writer) {
+				t.Fatal("expected true on partial write error")
+			}
+
+			if got := writer.Body.String(); got != payload[:2] {
+				t.Errorf("expected only the written prefix %q, got %q", payload[:2], got)
+			}
+		})
+	}
+}
+
+func TestWriteString_ContentLengthError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "2")
+
+		if !WriteString(r.Context(), w, "hello") {
+			t.Error("expected true on Content-Length overflow")
+		}
+
+		if got := w.Header().Get("Content-Length"); got != "2" {
+			t.Errorf("expected original Content-Length of 2, got %q", got)
+		}
+	}))
+	defer server.Close()
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodHead, server.URL, http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := server.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = resp.Body.Close()
+	if err != nil {
+		t.Fatal(err)
 	}
 }
