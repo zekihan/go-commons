@@ -20,6 +20,28 @@ func TestRecoverHandler_Panic(t *testing.T) {
 	}
 }
 
+func TestRecoverHandler_Abort(t *testing.T) {
+	handler := RecoverHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic(http.ErrAbortHandler)
+	}))
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
+	rr := httptest.NewRecorder()
+
+	defer func() {
+		//nolint:err113,errorlint // Verify the original panic value is preserved.
+		if got := recover(); got != http.ErrAbortHandler {
+			t.Errorf("recovered %v, want http.ErrAbortHandler", got)
+		}
+
+		if rr.Body.Len() != 0 {
+			t.Errorf("response written during abort: %q", rr.Body.String())
+		}
+	}()
+
+	handler.ServeHTTP(rr, req)
+}
+
 func TestRecoverHandler_NoPanic(t *testing.T) {
 	called := false
 	handler := RecoverHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
