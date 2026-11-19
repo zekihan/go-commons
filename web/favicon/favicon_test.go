@@ -60,3 +60,15 @@ func TestGetFavicon(t *testing.T) {
 		t.Errorf("unexpected body: got %v, want %v", body, content)
 	}
 }
+
+func TestGetFaviconRejectsDirectory(t *testing.T) {
+	handler := GetFavicon(t.TempDir())
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/favicon.ico", http.NoBody)
+	recorder := httptest.NewRecorder()
+
+	handler(recorder, req)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", recorder.Code, http.StatusNotFound)
+	}
+}
