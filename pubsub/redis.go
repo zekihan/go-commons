@@ -75,7 +75,8 @@ func (ps *RedisPubSub) Listen(
 }
 
 // ListenReady waits for the server's subscription acknowledgement. The context bounds
-// initialization only; call the returned cancel function to stop a successful listener.
+// initialization only. The returned cancel function stops the listener and schedules
+// connection cleanup.
 // This guarantees initialization, not durable or exactly-once delivery.
 //
 //nolint:gocyclo // Startup and cancellation paths must each release the subscription.
@@ -93,13 +94,12 @@ func (ps *RedisPubSub) ListenReady(ctx context.Context, channel string,
 		return nil, fmt.Errorf("subscribe to %s: %w", chKey, err)
 	}
 
-	listenerCtx, cancel := context.WithCancel(context.Background())
 	// Create the subscription before doing network I/O so cancellation can own cleanup.
 	sub := ps.rdb.Subscribe(ctx)
 
 	var once sync.Once
 
-	closeSub := func() { once.Do(func() { cancel(); _ = sub.Close() }) }
+	closeSub := func() { once.Do(func() { _ = sub.Close() }) }
 	stop := context.AfterFunc(ctx, closeSub)
 
 	// Subscribe can block in connection initialization even when ctx is canceled.
@@ -153,12 +153,15 @@ func (ps *RedisPubSub) ListenReady(ctx context.Context, channel string,
 	}
 
 	ch := sub.Channel()
+	listenerCtx, cancel := context.WithCancel(context.Background())
+	// Closing the subscription can wait for go-redis to finish reconnecting.
+	context.AfterFunc(listenerCtx, closeSub)
 
 	slog.InfoContext(listenerCtx, "Subscribed to channel", slog.String("channel", chKey))
 	ctx = listenerCtx //nolint:contextcheck // Listener outlives its startup context.
 
 	go func() {
-		defer closeSub()
+		defer cancel()
 
 		for {
 			select {
@@ -200,5 +203,5 @@ func (ps *RedisPubSub) ListenReady(ctx context.Context, channel string,
 		}
 	}()
 
-	return closeSub, nil
+	return cancel, nil
 }
