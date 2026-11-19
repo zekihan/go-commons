@@ -92,18 +92,34 @@ func TestRunCmdCancellationHelper(t *testing.T) {
 }
 
 func TestRunCmd_Cancellation(t *testing.T) {
+	const (
+		helperArg = "-test.run=^TestRunCmdCancellationHelper$"
+		timeout   = 5 * time.Second
+	)
+
 	executable, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for _, inPath := range []bool{false, true} {
-		name := "RunCmd"
-		if inPath {
-			name = "RunCmdInPath"
-		}
+	tests := []struct {
+		name   string
+		cmd    string
+		args   []string
+		inPath bool
+	}{
+		{name: "RunCmd", cmd: executable, args: []string{helperArg}},
+		{name: "RunCmdInPath", cmd: executable, args: []string{helperArg}, inPath: true},
+		// The helper retains stdout and stderr when its shell is killed.
+		{
+			name: "inherited output pipes",
+			cmd:  "sh",
+			args: []string{"-c", `"$@" & wait`, "sh", executable, helperArg},
+		},
+	}
 
-		t.Run(name, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
 			var config net.ListenConfig
 
 			listener, listenErr := config.Listen(t.Context(), "tcp", "127.0.0.1:0")
@@ -116,23 +132,22 @@ func TestRunCmd_Cancellation(t *testing.T) {
 			defer cancel()
 
 			// Close the listener if the subprocess never connects, bounding a broken test.
-			timeout := time.AfterFunc(5*time.Second, func() {
+			acceptTimeout := time.AfterFunc(timeout, func() {
 				cancel()
 
 				_ = listener.Close()
 			})
-			defer timeout.Stop()
+			defer acceptTimeout.Stop()
 
 			env := append(os.Environ(), "GO_COMMONS_CMD_CANCEL_ADDRESS="+listener.Addr().String())
 			result := make(chan error, 1)
 			directory := t.TempDir()
 
 			go func() {
-				args := []string{"-test.run=^TestRunCmdCancellationHelper$"}
-				if inPath {
-					result <- RunCmdInPath(ctx, directory, executable, env, args...)
+				if test.inPath {
+					result <- RunCmdInPath(ctx, directory, test.cmd, env, test.args...)
 				} else {
-					result <- RunCmd(ctx, executable, env, args...)
+					result <- RunCmd(ctx, test.cmd, env, test.args...)
 				}
 			}()
 
@@ -144,13 +159,20 @@ func TestRunCmd_Cancellation(t *testing.T) {
 
 			cancel()
 
-			commandErr := <-result
-			if !errors.Is(commandErr, context.Canceled) {
-				t.Errorf("expected context cancellation, got %v", commandErr)
-			}
+			select {
+			case commandErr := <-result:
+				if !errors.Is(commandErr, context.Canceled) {
+					t.Errorf("expected context cancellation, got %v", commandErr)
+				}
 
-			if _, ok := errors.AsType[*exec.ExitError](commandErr); !ok {
-				t.Errorf("expected subprocess exit error to remain available, got %v", commandErr)
+				if _, ok := errors.AsType[*exec.ExitError](commandErr); !ok {
+					t.Errorf(
+						"expected subprocess exit error to remain available, got %v",
+						commandErr,
+					)
+				}
+			case <-time.After(timeout):
+				t.Fatal("command did not return after cancellation")
 			}
 		})
 	}
