@@ -11,6 +11,10 @@ import (
 
 var ErrIPNotFound = errors.New("IP not found")
 
+// GetIP returns the first valid address from the first X-Forwarded-For entry,
+// X-Real-IP, or RemoteAddr, in that order. Forwarded headers are trusted without
+// verifying the peer; callers must ensure a trusted proxy controls those headers
+// before using the result for security decisions.
 func GetIP(r *http.Request) (string, error) {
 	errs := make([]error, 0)
 

@@ -9,6 +9,9 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// LoadEnvironmentFile loads .env, .override.env, then others in order, replacing
+// existing process environment values. Missing files and directories are skipped.
+// An error stops loading; values from earlier files remain in the environment.
 func LoadEnvironmentFile(others ...string) error {
 	envFile := ".env"
 

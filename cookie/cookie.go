@@ -37,6 +37,9 @@ func parseSameSite(s string) http.SameSite {
 // CreateNewCookie encodes value and validates the cookie's HTTP attributes.
 // Invalid names or paths return an error rather than being silently dropped or
 // altered when the cookie is serialized by net/http.
+// The first option selects SameSite ("strict", "none", or "lax"; default lax),
+// and the second selects the path (default "/"). Cookies are secure, HTTP-only,
+// and have a 24-hour maximum age.
 func CreateNewCookie(name string, value any, opts ...string) (*http.Cookie, error) {
 	sameSite := http.SameSiteLaxMode
 	path := "/"

@@ -32,10 +32,16 @@ go get github.com/zekihan/go-commons
   handlers live in `web/ping`, `web/health`, `web/ready`, `web/favicon`, and
   `web/errorroutes`.
 - **`environment`** — Parses `.env`, `.override.env`, and any extra files with
-  `godotenv`. Later files override earlier values. Invalid entries return an error.
+  `godotenv`. Values override the process environment and later files override
+  earlier files. Missing files and directories are skipped; an error stops loading
+  without undoing values from earlier files.
 - **`utils`** — Miscellaneous helpers: `InitLogger` (tint-colored `slog`),
   `WrapErrors`, `RandString`, generics (`Contains`, `Filter`, `PointerTo`), IP
   extraction, HTML/JS minification, version info, and command execution.
+
+`utils.GetIP` trusts `X-Forwarded-For` and `X-Real-IP` before the remote
+address. Ensure a trusted proxy controls these headers before using the result
+for access control or other security decisions.
 
 ## Development
 

@@ -12,7 +12,7 @@ type localSubscriber struct {
 	done     <-chan struct{}
 }
 
-// LocalPubSub delivers each publication to every listener registered when Publish starts.
+// LocalPubSub delivers each publication to listeners on its channel registered when Publish starts.
 // Listeners handle messages serially; concurrent publications have no defined order.
 // A slow handler applies backpressure to Publish until it receives the next message.
 type LocalPubSub struct {
