@@ -10,13 +10,43 @@ import (
 	"github.com/felixge/httpsnoop"
 )
 
-type routeContextKey struct{}
+type (
+	routeContextKey  struct{}
+	holderContextKey struct{}
+)
+
+// routeHolder lets handlers deeper in the chain report the route back to
+// Middleware even when intermediate middlewares replace the request with a
+// copy (for example through Request.WithContext).
+type routeHolder struct {
+	route string
+}
 
 // WithRoute returns a copy of request carrying an explicit route name for
 // Middleware. Use it when the route is not a Go 1.22 ServeMux pattern, for
 // example behind another router.
 func WithRoute(request *http.Request, route string) *http.Request {
+	if holder, ok := request.Context().Value(holderContextKey{}).(*routeHolder); ok {
+		holder.route = route
+	}
+
 	return request.WithContext(context.WithValue(request.Context(), routeContextKey{}, route))
+}
+
+// CapturePattern reports the Go 1.22 ServeMux pattern back to Middleware.
+// Wrap the ServeMux itself with it when middlewares between Middleware and
+// the mux copy the request, since the mux sets Pattern only on its copy:
+//
+//	srv.Handler = registry.Middleware(logRequests(metrics.CapturePattern(mux)))
+func CapturePattern(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		next.ServeHTTP(writer, request)
+
+		holder, ok := request.Context().Value(holderContextKey{}).(*routeHolder)
+		if ok && holder.route == "" && request.Pattern != "" {
+			holder.route = patternPath(request.Pattern)
+		}
+	})
 }
 
 // Middleware records http_requests_total and
@@ -38,6 +68,10 @@ func (registry *Registry) Middleware(next http.Handler) http.Handler {
 func (registry *Registry) middleware(route string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		start := time.Now()
+		holder := &routeHolder{}
+		request = request.WithContext(
+			context.WithValue(request.Context(), holderContextKey{}, holder),
+		)
 		captured := httpsnoop.CaptureMetrics(next, writer, request)
 		status := captured.Code
 
@@ -47,7 +81,7 @@ func (registry *Registry) middleware(route string, next http.Handler) http.Handl
 
 		routeName := route
 		if routeName == "" {
-			routeName = routeLabel(request)
+			routeName = routeLabel(request, holder)
 		}
 
 		labels := Labels{
@@ -79,19 +113,27 @@ func methodLabel(method string) string {
 	}
 }
 
-func routeLabel(request *http.Request) string {
+func routeLabel(request *http.Request, holder *routeHolder) string {
 	if route, ok := request.Context().Value(routeContextKey{}).(string); ok && route != "" {
 		return route
 	}
 
-	if request.Pattern != "" {
-		// Pattern is "METHOD /path" or "/path"; keep only the path part.
-		if _, path, found := strings.Cut(request.Pattern, " "); found {
-			return path
-		}
+	if holder.route != "" {
+		return holder.route
+	}
 
-		return request.Pattern
+	if request.Pattern != "" {
+		return patternPath(request.Pattern)
 	}
 
 	return "unknown"
+}
+
+// patternPath strips the method from "METHOD /path", keeping "/path".
+func patternPath(pattern string) string {
+	if _, path, found := strings.Cut(pattern, " "); found {
+		return path
+	}
+
+	return pattern
 }

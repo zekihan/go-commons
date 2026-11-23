@@ -82,5 +82,14 @@ Mount `registry.Handler()` on the main mux instead if a separate listener is
 not wanted. For non-ServeMux routing use `metrics.MiddlewareWithRoute` or
 `metrics.WithRoute` to supply a bounded route name.
 
+If middlewares between `registry.Middleware` and the mux copy the request
+(for example with `Request.WithContext`), the mux pattern is set only on the
+copy. Wrap the mux itself with `metrics.CapturePattern` so the route still
+reaches the metrics middleware; otherwise every request is labelled `unknown`:
+
+```go
+srv.Handler = registry.Middleware(logRequests(metrics.CapturePattern(mux)))
+```
+
 In Kubernetes, annotate the pod for vmagent scraping on the metrics port and
 path `/metrics`.
