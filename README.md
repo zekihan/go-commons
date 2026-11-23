@@ -27,6 +27,10 @@ go get github.com/zekihan/go-commons
   `RedisPubSub`, selected by `NewUniversalPubSub(opts)` based on whether
   `opts.Redis` is set. Channel names are prefixed with `opts.Prefix` + `:` when
   non-empty.
+- **`metrics`** — Prometheus-compatible metrics backed by
+  `VictoriaMetrics/metrics`: a `/metrics` handler with Go runtime and process
+  metrics, HTTP middleware labelled by method, route pattern, and status, and
+  app-specific counters, gauges, and histograms.
 - **`web`** — HTTP response helpers (`Write`, `WriteString`, `CheckError`) plus
   `GetAcceptType`. `CheckError` logs via `slog` and writes `http.Error`. Ready-made
   handlers live in `web/ping`, `web/health`, `web/ready`, `web/favicon`, and
@@ -53,3 +57,30 @@ make audit   # vet + staticcheck + govulncheck + tests
 ```
 
 Publishing and manual recovery: [Publishing](docs/publishing.md).
+
+## Metrics
+
+```go
+registry := metrics.New()
+
+mux := http.NewServeMux()
+mux.HandleFunc("GET /users/{id}", handler)
+
+// Route label is the ServeMux pattern ("/users/{id}"), never the raw path.
+srv := &http.Server{Handler: registry.Middleware(mux)}
+
+// App-specific metrics; labels must stay bounded (no IDs or raw paths).
+jobs := registry.Counter("app_jobs_total", metrics.Labels{"kind": "sync"})
+jobs.Inc()
+registry.Gauge("app_queue_depth", nil).Set(3)
+
+// Serve /metrics on an internal-only address, not via public ingress.
+go registry.ListenAndServe(ctx, ":9090")
+```
+
+Mount `registry.Handler()` on the main mux instead if a separate listener is
+not wanted. For non-ServeMux routing use `metrics.MiddlewareWithRoute` or
+`metrics.WithRoute` to supply a bounded route name.
+
+In Kubernetes, annotate the pod for vmagent scraping on the metrics port and
+path `/metrics`.
