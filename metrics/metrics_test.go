@@ -234,7 +234,7 @@ func TestMiddlewareBoundsUnknownMethods(t *testing.T) {
 	registry := New()
 	handler := registry.Middleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 
-	request := httptest.NewRequest("BREW", "/", http.NoBody)
+	request := httptest.NewRequestWithContext(t.Context(), "BREW", "/", http.NoBody)
 	handler.ServeHTTP(httptest.NewRecorder(), request)
 
 	var output strings.Builder
