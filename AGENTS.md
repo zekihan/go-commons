@@ -35,6 +35,8 @@ This is a pure Go library (no `main` package) exporting shared utilities for HTT
 
 - `pubsub` — `UniversalPubSub` wraps either `LocalPubSub` (in-memory channels, single-process) or `RedisPubSub`. Selected by `NewUniversalPubSub(opts)` based on whether `opts.Redis` is set. Channel names are prefixed with `opts.Prefix` + `:` when non-empty.
 
+- `metrics` — Prometheus-compatible metrics (VictoriaMetrics/metrics): `/metrics` handler with Go/process metrics, route-pattern-labelled HTTP middleware, counters/gauges/histograms, optional separate listener.
+
 - `web` — HTTP response helpers (`Write`, `WriteString`, `CheckError`). `CheckError` logs errors via `slog` and writes `http.Error`.
 
 - `environment` — Loads `.env` then `.override.env` then optional extra files via `godotenv.Overload`.

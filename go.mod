@@ -3,6 +3,7 @@ module github.com/zekihan/go-commons
 go 1.27.4
 
 require (
+	github.com/VictoriaMetrics/metrics v1.45.0
 	github.com/alicebob/miniredis/v2 v2.40.0
 	github.com/felixge/httpsnoop v1.1.0
 	github.com/google/uuid v1.6.0
@@ -17,6 +18,8 @@ require (
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/tdewolff/parse/v2 v2.25.0 // indirect
+	github.com/valyala/fastrand v1.1.0 // indirect
+	github.com/valyala/histogram v1.2.0 // indirect
 	github.com/yuin/gopher-lua v1.1.2 // indirect
 	go.uber.org/atomic v1.12.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect
