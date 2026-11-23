@@ -245,3 +245,62 @@ func TestMiddlewareBoundsUnknownMethods(t *testing.T) {
 		t.Fatalf("output missing %q:\n%s", want, output.String())
 	}
 }
+
+type cloneKey struct{}
+
+func TestCapturePatternSurvivesRequestCopies(t *testing.T) {
+	registry := New()
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /users/{id}", func(http.ResponseWriter, *http.Request) {})
+
+	copying := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			next.ServeHTTP(
+				writer,
+				request.WithContext(context.WithValue(request.Context(), cloneKey{}, true)),
+			)
+		})
+	}
+
+	registry.Middleware(copying(CapturePattern(mux))).ServeHTTP(
+		httptest.NewRecorder(),
+		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/users/7", http.NoBody),
+	)
+	registry.Middleware(copying(mux)).ServeHTTP(
+		httptest.NewRecorder(),
+		httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/users/7", http.NoBody),
+	)
+
+	body := scrape(t, registry)
+	for _, want := range []string{
+		`http_requests_total{method="GET",route="/users/{id}",status="200"} 1`,
+		`http_requests_total{method="POST",route="unknown",status="405"} 1`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("expected scrape to contain %q, got:\n%s", want, body)
+		}
+	}
+}
+
+func TestWithRouteInsideCopiesReachesMiddleware(t *testing.T) {
+	registry := New()
+	inner := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		_ = WithRoute(request, "/report")
+	})
+	copying := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		inner.ServeHTTP(
+			writer,
+			request.WithContext(context.WithValue(request.Context(), cloneKey{}, true)),
+		)
+	})
+
+	registry.Middleware(copying).ServeHTTP(
+		httptest.NewRecorder(),
+		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/report?x=1", http.NoBody),
+	)
+
+	want := `http_requests_total{method="GET",route="/report",status="200"} 1`
+	if body := scrape(t, registry); !strings.Contains(body, want) {
+		t.Errorf("expected scrape to contain %q, got:\n%s", want, body)
+	}
+}
