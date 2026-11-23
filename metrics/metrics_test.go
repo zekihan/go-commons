@@ -229,3 +229,19 @@ func TestListenAndServe(t *testing.T) {
 		t.Error("server did not shut down after context cancellation")
 	}
 }
+
+func TestMiddlewareBoundsUnknownMethods(t *testing.T) {
+	registry := New()
+	handler := registry.Middleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+
+	request := httptest.NewRequest("BREW", "/", http.NoBody)
+	handler.ServeHTTP(httptest.NewRecorder(), request)
+
+	var output strings.Builder
+	registry.WritePrometheus(&output)
+
+	want := `http_requests_total{method="other",route="unknown",status="200"} 1`
+	if !strings.Contains(output.String(), want) {
+		t.Fatalf("output missing %q:\n%s", want, output.String())
+	}
+}

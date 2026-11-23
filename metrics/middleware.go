@@ -51,7 +51,7 @@ func (registry *Registry) middleware(route string, next http.Handler) http.Handl
 		}
 
 		labels := Labels{
-			"method": request.Method,
+			"method": methodLabel(request.Method),
 			"route":  routeName,
 			"status": strconv.Itoa(status),
 		}
@@ -67,6 +67,16 @@ func (registry *Registry) middleware(route string, next http.Handler) http.Handl
 //	mux.Handle("/report", registry.MiddlewareWithRoute("/report", handler))
 func (registry *Registry) MiddlewareWithRoute(route string, next http.Handler) http.Handler {
 	return registry.middleware(route, next)
+}
+
+func methodLabel(method string) string {
+	switch method {
+	case http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch,
+		http.MethodDelete, http.MethodConnect, http.MethodOptions, http.MethodTrace:
+		return method
+	default:
+		return "other"
+	}
 }
 
 func routeLabel(request *http.Request) string {
