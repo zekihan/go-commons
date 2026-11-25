@@ -2,6 +2,8 @@ github.com/VictoriaMetrics/metrics v1.45.0 h1:Tv8dZRAjkO90rBTxYrWOHUWFBHsAKdKcZY
 github.com/VictoriaMetrics/metrics v1.45.0/go.mod h1:xDM82ULLYCYdFRgQ2JBxi8Uf1+8En1So9YUwlGTOqTc=
 github.com/alicebob/miniredis/v2 v2.40.0 h1:6IgTQbvm2JiMYZ8yur/acNJzVjtSOWCelxXbk/LUBXc=
 github.com/alicebob/miniredis/v2 v2.40.0/go.mod h1:TcL7YfarKPGDAthEtl5NBeHZfeUQj6OXMm/+iu5cLMM=
+github.com/alicebob/miniredis/v2 v2.41.0 h1:LnpAh9DPc7EVkpykUnub2L+yPnZF1INHaNvdCMJSmqI=
+github.com/alicebob/miniredis/v2 v2.41.0/go.mod h1:TcL7YfarKPGDAthEtl5NBeHZfeUQj6OXMm/+iu5cLMM=
 github.com/bsm/ginkgo/v2 v2.12.0 h1:Ny8MWAHyOepLGlLKYmXG4IEkioBysk6GpaRTLC8zwWs=
 github.com/bsm/ginkgo/v2 v2.12.0/go.mod h1:SwYbGRRDovPVboqFv0tPTcG1sN61LM1Z4ARdbAV9g4c=
 github.com/bsm/gomega v1.27.10 h1:yeMWxP2pV2fG3FgAODIY8EiRE3dy0aeFYt4l7wh6yKA=
