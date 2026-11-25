@@ -62,3 +62,39 @@ func TestRecoverHandler_NoPanic(t *testing.T) {
 		t.Errorf("expected status 202, got %d", rr.Code)
 	}
 }
+
+func TestRecoverHandler_PanicAfterWrite(t *testing.T) {
+	for _, tc := range []struct {
+		write func(http.ResponseWriter)
+		name  string
+	}{
+		{name: "header", write: func(w http.ResponseWriter) { w.WriteHeader(http.StatusAccepted) }},
+		{name: "body", write: func(w http.ResponseWriter) { _, _ = w.Write([]byte("partial")) }},
+		{name: "flush", write: func(w http.ResponseWriter) { _ = http.NewResponseController(w).Flush() }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			handler := RecoverHandler(
+				http.HandlerFunc(
+					func(w http.ResponseWriter, r *http.Request) { tc.write(w); panic("boom") },
+				),
+			)
+			rr := httptest.NewRecorder()
+
+			defer func() {
+				//nolint:err113,errorlint // net/http recognizes the exact panic value.
+				if got := recover(); got != http.ErrAbortHandler {
+					t.Errorf("recovered %v, want http.ErrAbortHandler", got)
+				}
+
+				if rr.Body.String() == "Internal Server Error\n" {
+					t.Error("wrote an error response after committing")
+				}
+			}()
+
+			handler.ServeHTTP(
+				rr,
+				httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody),
+			)
+		})
+	}
+}
