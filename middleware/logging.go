@@ -3,6 +3,7 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -22,7 +23,7 @@ var defaultSkippedPaths = []string{
 
 func Logging(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if utils.Contains(defaultSkippedPaths, r.URL.Path) {
+		if slices.Contains(defaultSkippedPaths, r.URL.Path) {
 			handler.ServeHTTP(w, r)
 
 			return

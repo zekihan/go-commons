@@ -1,3 +1,7 @@
+// Package favicon serves favicon files over HTTP.
+//
+// Deprecated: web/favicon has no known consumers and will be removed in a
+// future major release.
 package favicon
 
 import (

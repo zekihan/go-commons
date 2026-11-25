@@ -1,3 +1,8 @@
+// Package pubsub provides a universal pub/sub interface backed by either an
+// in-memory or a Redis implementation.
+//
+// Deprecated: pubsub has no known consumers and will be removed in a future
+// major release.
 package pubsub
 
 import (

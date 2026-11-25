@@ -32,6 +32,10 @@ func RandString(nByte int) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(randomBytes), nil
 }
 
+// Contains reports whether item is an element of commons.
+//
+// Deprecated: Contains only wraps slices.Contains and will be removed in a
+// future major release; use slices.Contains directly.
 func Contains[T comparable](commons []T, item T) bool {
 	return slices.Contains(commons, item)
 }
@@ -78,6 +82,9 @@ func MaskString(secret string) string {
 }
 
 // PointerTo returns a pointer to the given value.
+//
+// Deprecated: PointerTo has no known consumers and will be removed in a
+// future major release; use new(T) or &value directly.
 func PointerTo[T any](value T) *T {
 	return new(value)
 }

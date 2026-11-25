@@ -39,9 +39,16 @@ go get github.com/zekihan/go-commons
   `godotenv`. Values override the process environment and later files override
   earlier files. Missing files and directories are skipped; an error stops loading
   without undoing values from earlier files.
-- **`utils`** — Miscellaneous helpers: `InitLogger` (tint-colored `slog`),
-  `WrapErrors`, `RandString`, generics (`Contains`, `Filter`, `PointerTo`), IP
-  extraction, HTML/JS minification, version info, and command execution.
+- **`log`** — Structured logging helpers built on `log/slog`: `InitLogger`
+  with text (`FormatText`, tint-colored) or JSON (`FormatJSON`) output, and
+  `LevelFromString` for parsing level names from strings. Importing only this
+  package does not link the JS minifier.
+- **`minify`** — JS minification helpers (`MinifyJS`, `GetMinifier`) backed
+  by `tdewolff/minify`.
+- **`utils`** — Miscellaneous helpers: `WrapErrors`, `RandString`, generics
+  (`Filter`), IP extraction, version info. Deprecated entries (kept for one
+  release): `InitLogger`/`LoggerConfig` (use `log`), `MinifyJS`/`GetMinifier`
+  (use `minify`), `RunCmd`/`RunCmdInPath`, `Contains`, and `PointerTo`.
 
 `utils.GetIP` trusts `X-Forwarded-For` and `X-Real-IP` before the remote
 address. Ensure a trusted proxy controls these headers before using the result

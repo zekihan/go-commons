@@ -1,38 +1,21 @@
 package utils
 
 import (
-	"fmt"
-	"regexp"
-	"sync"
-
 	"github.com/tdewolff/minify/v2"
-	"github.com/tdewolff/minify/v2/js"
+
+	commonsminify "github.com/zekihan/go-commons/minify"
 )
 
-var (
-	minifier     *minify.M
-	minifierOnce sync.Once
-)
-
+// GetMinifier returns the shared minifier instance.
+//
+// Deprecated: use github.com/zekihan/go-commons/minify instead.
 func GetMinifier() *minify.M {
-	minifierOnce.Do(func() {
-		minifier = minify.New()
-		minifier.AddFuncRegexp(
-			regexp.MustCompile("^(application|text)/(x-)?(java|ecma)script$"),
-			js.Minify,
-		)
-	})
-
-	return minifier
+	return commonsminify.GetMinifier()
 }
 
+// MinifyJS minifies JavaScript source.
+//
+// Deprecated: use github.com/zekihan/go-commons/minify instead.
 func MinifyJS(input string) (string, error) {
-	m := GetMinifier()
-
-	output, err := m.String("text/javascript", input)
-	if err != nil {
-		return "", fmt.Errorf("failed to minify JS: %w", err)
-	}
-
-	return output, nil
+	return commonsminify.MinifyJS(input) //nolint:wrapcheck // Thin re-export, return as-is.
 }

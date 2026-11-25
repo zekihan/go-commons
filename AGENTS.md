@@ -33,7 +33,7 @@ This is a pure Go library (no `main` package) exporting shared utilities for HTT
 
 - `middleware` — Standard `net/http` middleware wrappers: cookie-based auth (`GetAuthMiddlewareForCookie`), API key auth (`GetAuthMiddlewareForAPIKey`), structured request logging, and panic recovery. HTMX requests are handled separately in the auth middleware (sets `HX-Refresh` instead of redirect).
 
-- `pubsub` — `UniversalPubSub` wraps either `LocalPubSub` (in-memory channels, single-process) or `RedisPubSub`. Selected by `NewUniversalPubSub(opts)` based on whether `opts.Redis` is set. Channel names are prefixed with `opts.Prefix` + `:` when non-empty.
+- `pubsub` — (deprecated, no known consumers) `UniversalPubSub` wraps either `LocalPubSub` (in-memory channels, single-process) or `RedisPubSub`. Selected by `NewUniversalPubSub(opts)` based on whether `opts.Redis` is set. Channel names are prefixed with `opts.Prefix` + `:` when non-empty.
 
 - `metrics` — Prometheus-compatible metrics (VictoriaMetrics/metrics): `/metrics` handler with Go/process metrics, route-pattern-labelled HTTP middleware, counters/gauges/histograms, optional separate listener.
 
@@ -41,7 +41,9 @@ This is a pure Go library (no `main` package) exporting shared utilities for HTT
 
 - `environment` — Loads `.env` then `.override.env` then optional extra files via `godotenv.Overload`.
 
-- `utils` — Miscellaneous: `InitLogger` (tint-colored slog), `WrapErrors`, `RandString`, generics (`Contains`, `Filter`, `PointerTo`), IP utilities, HTML minification, version parsing, command execution helpers.
+- `log` — Structured logging helpers on `log/slog`: `InitLogger` with `FormatText` (tint-colored) or `FormatJSON`, `LevelFromString`, `ParseFormat`. No tdewolff dependency.
+- `minify` — JS minification (`MinifyJS`, `GetMinifier`) via `tdewolff/minify`.
+- `utils` — Miscellaneous: `WrapErrors`, `RandString`, generics (`Filter`), IP utilities, version parsing. Deprecated shims (one release): `InitLogger`/`LoggerConfig`/`LevelFromString`/`ParseFormat` (use `log`), `MinifyJS`/`GetMinifier` (use `minify`), plus `RunCmd`/`RunCmdInPath`, `Contains`, `PointerTo`.
 
 ## Linting Rules
 

@@ -1,60 +1,50 @@
 package utils
 
 import (
-	"io"
 	"log/slog"
-	"os"
-	"time"
 
-	"github.com/lmittmann/tint"
-	"github.com/mattn/go-isatty"
+	"github.com/zekihan/go-commons/log"
 )
 
-type LoggerConfig struct {
-	Writer    io.Writer
-	Level     slog.Level
-	AddSource bool
-}
+// LoggerConfig configures InitLogger.
+//
+// Deprecated: use github.com/zekihan/go-commons/log instead.
+type LoggerConfig = log.LoggerConfig
+
+// Format selects the log output encoding.
+//
+// Deprecated: use github.com/zekihan/go-commons/log instead.
+type Format = log.Format
+
+const (
+	// FormatText renders human-readable tint text output.
+	//
+	// Deprecated: use github.com/zekihan/go-commons/log instead.
+	FormatText = log.FormatText
+
+	// FormatJSON renders structured JSON output.
+	//
+	// Deprecated: use github.com/zekihan/go-commons/log instead.
+	FormatJSON = log.FormatJSON
+)
 
 // InitLogger initializes the global slog logger.
-// Passing nil uses sane defaults.
+//
+// Deprecated: use github.com/zekihan/go-commons/log instead.
 func InitLogger(cfg *LoggerConfig) {
-	c := resolveLoggerConfig(cfg)
-
-	slog.SetDefault(slog.New(tint.NewTextHandler(c.Writer, &tint.Options{
-		Level:      c.Level,
-		AddSource:  c.AddSource,
-		TimeFormat: time.RFC3339,
-		NoColor:    !writerSupportsColor(c.Writer),
-	})))
+	log.InitLogger(cfg)
 }
 
-func writerSupportsColor(writer io.Writer) bool {
-	file, ok := writer.(interface{ Fd() uintptr })
-	if !ok {
-		return false
-	}
-
-	return isatty.IsTerminal(file.Fd()) || isatty.IsCygwinTerminal(file.Fd())
+// LevelFromString parses a slog level name.
+//
+// Deprecated: use github.com/zekihan/go-commons/log instead.
+func LevelFromString(input string) (slog.Level, error) {
+	return log.LevelFromString(input) //nolint:wrapcheck // Thin re-export, return as-is.
 }
 
-func resolveLoggerConfig(cfg *LoggerConfig) LoggerConfig {
-	defaultCfg := LoggerConfig{
-		Level:     slog.LevelInfo,
-		AddSource: false,
-		Writer:    os.Stdout,
-	}
-
-	if cfg == nil {
-		return defaultCfg
-	}
-
-	if cfg.Writer != nil {
-		defaultCfg.Writer = cfg.Writer
-	}
-
-	defaultCfg.Level = cfg.Level
-	defaultCfg.AddSource = cfg.AddSource
-
-	return defaultCfg
+// ParseFormat parses a format name.
+//
+// Deprecated: use github.com/zekihan/go-commons/log instead.
+func ParseFormat(input string) (Format, error) {
+	return log.ParseFormat(input) //nolint:wrapcheck // Thin re-export, return as-is.
 }
