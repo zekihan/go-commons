@@ -49,6 +49,18 @@ go get github.com/zekihan/go-commons
   (`Filter`), IP extraction, version info. Deprecated entries (kept for one
   release): `InitLogger`/`LoggerConfig` (use `log`), `MinifyJS`/`GetMinifier`
   (use `minify`), `RunCmd`/`RunCmdInPath`, `Contains`, and `PointerTo`.
+- **`oidcauth`** — OIDC sign-in with server-side sessions and bearer-token
+  protection for MCP endpoints, generic over the application's identity type
+  (`Config.Authorize` maps verified claims to it). Append `oidcauth.Migration`
+  to the application's store migrations for the session tables.
+- **`sqlitestore`** — SQLite store scaffold: opening with WAL and foreign
+  keys, ordered `PRAGMA user_version` migrations supplied by the application,
+  and single-connection read/write transaction helpers.
+- **`backup`** — Periodic consistent SQLite backups via `VACUUM INTO`, with
+  configurable file prefix and retention.
+- **`mockidp`** — Reusable loopback-only mock OIDC provider for tests:
+  `Start` for Go tests, `Run` for external e2e harnesses that need the
+  provider configuration as one JSON line from a small command.
 
 `utils.GetIP` trusts `X-Forwarded-For` and `X-Real-IP` before the remote
 address. Ensure a trusted proxy controls these headers before using the result
