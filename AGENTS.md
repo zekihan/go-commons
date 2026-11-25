@@ -45,6 +45,14 @@ This is a pure Go library (no `main` package) exporting shared utilities for HTT
 - `minify` — JS minification (`MinifyJS`, `GetMinifier`) via `tdewolff/minify`.
 - `utils` — Miscellaneous: `WrapErrors`, `RandString`, generics (`Filter`), IP utilities, version parsing. Deprecated shims (one release): `InitLogger`/`LoggerConfig`/`LevelFromString`/`ParseFormat` (use `log`), `MinifyJS`/`GetMinifier` (use `minify`), plus `RunCmd`/`RunCmdInPath`, `Contains`, `PointerTo`.
 
+- `oidcauth` — OIDC sign-in + server-side sessions + MCP bearer auth as one package, generic over the app identity type (`Config[T].Authorize` maps verified `IdentityInfo` claims to `T`; `IdentityInfoAuthorize` covers `T=IdentityInfo`). Modelled on basket's `internal/auth`. Apps append `oidcauth.Migration` (sessions + oidc_transactions tables) to their store migrations and pass a shared `*sqlx.DB`. Cookie names, app name, success path, and an optional discovery HTTP client are config; proton-specific behaviour (rotating renewal tokens, sign-in redirects) stays in proton-mcp.
+
+- `sqlitestore` — SQLite scaffold modelled on basket's `internal/store`: `Open(ctx, path, migrations)` with WAL/foreign-keys/busy-timeout pragmas, single connection, ordered `PRAGMA user_version` migrations (`Migrate`, `ErrSchemaVersion` beyond the list), `Read`/`Write` tx helpers; `Tx.Inner()` exposes the `*sqlx.Tx` for app queries, `DB()` the `*sqlx.DB`.
+
+- `backup` — Periodic `VACUUM INTO` SQLite backups (`Run`, one-shot `Copy`) against an `Execer` interface (`*sqlx.DB`/`*sql.DB`), configurable file prefix (`WithFilePrefix`) and retention pruning.
+
+- `mockidp` — Test-only mock OIDC provider (mockoidc) on a loopback port: `Start` for Go tests (underlying provider via `Provider()`), `Run(ctx, out)` writes the `Config` JSON line and blocks, for external e2e harnesses via a small local `main`.
+
 ## Linting Rules
 
 The linter (`golangci-lint`, config in `.golangci.yaml`) enforces several non-obvious rules:
