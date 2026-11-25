@@ -12,6 +12,9 @@ import (
 
 // RunCmd runs a command and preserves both execution and context errors on failure.
 // It allows one second to drain output after the process exits or the context is done.
+//
+// Deprecated: RunCmd has no known consumers and will be removed in a future
+// major release; use os/exec directly.
 func RunCmd(ctx context.Context, cmd string, env []string, args ...string) error {
 	command := exec.CommandContext(ctx, cmd, args...)
 	if env != nil {
@@ -27,6 +30,9 @@ func RunCmd(ctx context.Context, cmd string, env []string, args ...string) error
 }
 
 // RunCmdInPath runs a command in cmdPath with the same error contract as RunCmd.
+//
+// Deprecated: RunCmdInPath has no known consumers and will be removed in a
+// future major release; use os/exec directly.
 func RunCmdInPath(ctx context.Context, cmdPath, cmd string, env []string, args ...string) error {
 	command := exec.CommandContext(ctx, cmd, args...)
 	if env != nil {
