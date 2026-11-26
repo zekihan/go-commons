@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"net/http"
 	"path/filepath"
+	"strings"
 )
 
 func GetFavicon(path string) func(w http.ResponseWriter, r *http.Request) {
@@ -17,8 +18,15 @@ func GetFavicon(path string) func(w http.ResponseWriter, r *http.Request) {
 		name = "."
 	}
 
+	isICO := strings.EqualFold(filepath.Ext(name), ".ico")
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=31536000")
+
+		if isICO {
+			w.Header().Set("Content-Type", "image/vnd.microsoft.icon")
+		}
+
 		http.ServeFileFS(w, r, faviconDir(dir), name)
 	}
 }
