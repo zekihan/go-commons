@@ -149,9 +149,7 @@ func (svc *Service[T]) exchange(
 	ctx context.Context,
 	code, verifier, nonce string,
 ) (*oidc.IDToken, *idClaims) {
-	if svc.cfg.HTTPClient != nil {
-		ctx = oidc.ClientContext(ctx, svc.cfg.HTTPClient)
-	}
+	ctx = oidc.ClientContext(ctx, svc.cfg.HTTPClient)
 
 	oauthToken, err := svc.oauth.Exchange(ctx, code, oauth2.VerifierOption(verifier))
 	if err != nil {

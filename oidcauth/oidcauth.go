@@ -31,6 +31,7 @@ import (
 const (
 	callbackPath = "/auth/callback"
 
+	defaultHTTPTimeout  = 12 * time.Second
 	transactionLifetime = 10 * time.Minute
 	sessionLifetime     = 30 * 24 * time.Hour
 	renewalInterval     = time.Hour
@@ -97,8 +98,8 @@ func IdentityInfoAuthorize(info IdentityInfo) (IdentityInfo, bool) {
 type Config[T any] struct {
 	// Authorize maps verified claims to the application identity. Required.
 	Authorize AuthorizeFunc[T]
-	// HTTPClient, when set, is used for provider discovery, key fetches and
-	// the token exchange. Use it to bound those calls with a timeout.
+	// HTTPClient is used for provider discovery, JWKS fetches, and token exchange.
+	// If nil, each service uses its own client with a 12-second timeout.
 	HTTPClient *http.Client
 	PublicURL  string
 	Issuer     string
@@ -155,9 +156,11 @@ func New[T any](ctx context.Context, cfg *Config[T], db *sqlx.DB) (*Service[T], 
 		resolved.SuccessPath = "/"
 	}
 
-	if resolved.HTTPClient != nil {
-		ctx = oidc.ClientContext(ctx, resolved.HTTPClient)
+	if resolved.HTTPClient == nil {
+		resolved.HTTPClient = &http.Client{Timeout: defaultHTTPTimeout}
 	}
+
+	ctx = oidc.ClientContext(ctx, resolved.HTTPClient)
 
 	provider, err := oidc.NewProvider(ctx, resolved.Issuer)
 	if err != nil {
