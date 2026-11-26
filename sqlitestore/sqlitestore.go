@@ -11,6 +11,7 @@ package sqlitestore
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"net/url"
@@ -132,21 +133,54 @@ func (s *Store) Close() error {
 }
 
 // Read runs run in a read-only transaction.
-func (s *Store) Read(ctx context.Context, run func(context.Context, *Tx) error) error {
-	return s.transaction(ctx, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelDefault}, run)
+func (s *Store) Read(ctx context.Context, run func(context.Context, *Tx) error) (err error) {
+	conn, err := s.db.Connx(ctx)
+	if err != nil {
+		return fmt.Errorf("reserve sqlite connection: %w", err)
+	}
+	defer conn.Close()
+
+	var queryOnly int
+
+	err = conn.GetContext(ctx, &queryOnly, "PRAGMA query_only")
+	if err != nil {
+		return fmt.Errorf("read sqlite query_only: %w", err)
+	}
+
+	// The driver's ReadOnly option selects the BEGIN mode. SQLite enforces
+	// query_only on the connection, so restore it before releasing the connection.
+	defer func() {
+		_, resetErr := conn.ExecContext(
+			context.WithoutCancel(ctx),
+			"PRAGMA query_only = "+strconv.Itoa(queryOnly),
+		)
+		if resetErr != nil {
+			//nolint:errcheck // ErrBadConn discards the connection before it returns to the pool.
+			_ = conn.Raw(func(any) error { return driver.ErrBadConn })
+			err = errors.Join(err, fmt.Errorf("restore sqlite query_only: %w", resetErr))
+		}
+	}()
+
+	_, err = conn.ExecContext(ctx, "PRAGMA query_only = ON")
+	if err != nil {
+		return fmt.Errorf("enable sqlite query_only: %w", err)
+	}
+
+	return transaction(ctx, conn.BeginTxx, &sql.TxOptions{ReadOnly: true}, run)
 }
 
 // Write runs run in a write transaction.
 func (s *Store) Write(ctx context.Context, run func(context.Context, *Tx) error) error {
-	return s.transaction(ctx, nil, run)
+	return transaction(ctx, s.db.BeginTxx, nil, run)
 }
 
-func (s *Store) transaction(
+func transaction(
 	ctx context.Context,
+	begin func(context.Context, *sql.TxOptions) (*sqlx.Tx, error),
 	options *sql.TxOptions,
 	run func(context.Context, *Tx) error,
 ) error {
-	tx, err := s.db.BeginTxx(ctx, options)
+	tx, err := begin(ctx, options)
 	if err != nil {
 		return fmt.Errorf("begin sqlite transaction: %w", err)
 	}

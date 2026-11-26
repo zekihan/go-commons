@@ -6,6 +6,11 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"modernc.org/sqlite"
+
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 var errTestRollback = errors.New("rollback requested")
@@ -113,6 +118,142 @@ func TestOpenRejectsNewerSchema(t *testing.T) {
 	_, err = Open(t.Context(), path, testMigrations[:1])
 	if !errors.Is(err, ErrSchemaVersion) {
 		t.Fatalf("Open with fewer migrations error = %v, want ErrSchemaVersion", err)
+	}
+}
+
+func TestReadRejectsWrites(t *testing.T) {
+	t.Parallel()
+
+	for name, path := range map[string]string{
+		"memory": ":memory:",
+		"file":   filepath.Join(t.TempDir(), "app.db"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+
+			st, err := Open(ctx, path, []string{"CREATE TABLE sample(v INTEGER)"})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			t.Cleanup(func() { _ = st.Close() })
+
+			err = st.Read(ctx, func(ctx context.Context, tx *Tx) error {
+				_, execErr := tx.Inner().ExecContext(ctx, "INSERT INTO sample VALUES (1)")
+
+				return execErr //nolint:wrapcheck // Assert the SQLite error returned by the callback.
+			})
+
+			var sqliteErr *sqlite.Error
+			if !errors.As(err, &sqliteErr) || sqliteErr.Code() != sqlite3.SQLITE_READONLY {
+				t.Errorf("Read INSERT error = %v, want SQLITE_READONLY", err)
+			}
+
+			var count int
+
+			err = st.DB().GetContext(ctx, &count, "SELECT COUNT(*) FROM sample")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if count != 0 {
+				t.Errorf("sample rows after Read = %d, want 0", count)
+			}
+		})
+	}
+}
+
+func TestReadRestoresWriter(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		wantErr   error
+		wantPanic any
+		finish    func(context.CancelFunc) error
+		name      string
+	}{
+		{name: "normal", finish: func(context.CancelFunc) error { return nil }},
+		{
+			name:    "error",
+			finish:  func(context.CancelFunc) error { return errTestRollback },
+			wantErr: errTestRollback,
+		},
+		{
+			name: "cancellation",
+			finish: func(cancel context.CancelFunc) error {
+				cancel()
+
+				return context.Canceled
+			},
+			wantErr: context.Canceled,
+		},
+		{
+			name:      "panic",
+			finish:    func(context.CancelFunc) error { panic(errTestRollback) },
+			wantPanic: errTestRollback,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+
+			st, err := Open(ctx, ":memory:", []string{"CREATE TABLE sample(v INTEGER)"})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			t.Cleanup(func() { _ = st.Close() })
+
+			readCtx, cancelRead := context.WithCancel(ctx)
+			defer cancelRead()
+
+			var (
+				readErr   error
+				recovered any
+			)
+
+			func() {
+				defer func() { recovered = recover() }()
+
+				readErr = st.Read(readCtx, func(ctx context.Context, tx *Tx) error {
+					var count int
+
+					getErr := tx.Inner().
+						GetContext(ctx, &count, "SELECT COUNT(*) FROM sample")
+					if getErr != nil {
+						t.Fatal(getErr)
+					}
+
+					if count != 0 {
+						t.Fatalf("sample rows during Read = %d, want 0", count)
+					}
+
+					return tc.finish(cancelRead)
+				})
+			}()
+
+			if recovered != tc.wantPanic || !errors.Is(readErr, tc.wantErr) {
+				t.Fatalf("Read returned %v, panic %v, want %v, %v",
+					readErr, recovered, tc.wantErr, tc.wantPanic)
+			}
+
+			err = st.Write(ctx, func(ctx context.Context, tx *Tx) error {
+				_, execErr := tx.Inner().ExecContext(ctx, "INSERT INTO sample VALUES (1)")
+				if execErr != nil {
+					return fmt.Errorf("insert sample: %w", execErr)
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("Write after Read: %v", err)
+			}
+		})
 	}
 }
 
