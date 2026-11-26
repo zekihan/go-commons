@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -278,10 +279,11 @@ func TestRequireSessionRejectsMissingAndCallbackRejectsBadState(t *testing.T) {
 // Bearer fixture: a local issuer serving discovery and JWKS for a test RSA key.
 
 type bearerFixture struct {
-	now     time.Time
-	service *Service[IdentityInfo]
-	key     *rsa.PrivateKey
-	issuer  string
+	now          time.Time
+	service      *Service[IdentityInfo]
+	key          *rsa.PrivateKey
+	issuer       string
+	failNextJWKS atomic.Bool
 }
 
 const (
@@ -290,7 +292,7 @@ const (
 	testSubject     = "owner-subject"
 )
 
-func newBearerFixture(t *testing.T) *bearerFixture {
+func newBearerFixture(t *testing.T, client *http.Client) *bearerFixture {
 	t.Helper()
 
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -301,6 +303,12 @@ func newBearerFixture(t *testing.T) *bearerFixture {
 	mux := http.NewServeMux()
 	issuer := httptest.NewServer(mux)
 	t.Cleanup(issuer.Close)
+
+	fixture := &bearerFixture{
+		key:    key,
+		issuer: issuer.URL,
+		now:    time.Now().Truncate(time.Second),
+	}
 
 	writeJSON := func(w http.ResponseWriter, value any) {
 		w.Header().Set("Content-Type", "application/json")
@@ -321,6 +329,12 @@ func newBearerFixture(t *testing.T) *bearerFixture {
 			})
 		})
 	mux.HandleFunc("/jwks", func(w http.ResponseWriter, _ *http.Request) {
+		if fixture.failNextJWKS.Swap(false) {
+			http.Error(w, "Retry later", http.StatusServiceUnavailable)
+
+			return
+		}
+
 		writeJSON(w, map[string]any{"keys": []map[string]string{{
 			"kty": "RSA",
 			"kid": "k1",
@@ -340,20 +354,49 @@ func newBearerFixture(t *testing.T) *bearerFixture {
 		MCPClientID:  testMCPClient,
 		MCPAudience:  testMCPAudience,
 		Authorize:    IdentityInfoAuthorize,
+		HTTPClient:   client,
 	}, openAuthDB(t).DB())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	fixture := &bearerFixture{
-		service: service,
-		key:     key,
-		issuer:  issuer.URL,
-		now:     time.Now().Truncate(time.Second),
-	}
+	fixture.service = service
 	service.now = func() time.Time { return fixture.now }
 
 	return fixture
+}
+
+func TestDefaultHTTPClientAndJWKSRecovery(t *testing.T) {
+	t.Parallel()
+
+	fixture := newBearerFixture(t, nil)
+
+	client := fixture.service.cfg.HTTPClient
+	if client == nil || client == http.DefaultClient || client.Timeout != 12*time.Second {
+		t.Fatalf("HTTP client = %+v, want dedicated client with a 12s timeout", client)
+	}
+
+	token := fixture.token(t, nil)
+	fixture.failNextJWKS.Store(true)
+
+	if rec := fixture.call(t, token); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("bearer status after JWKS failure = %d, want 401", rec.Code)
+	}
+
+	if rec := fixture.call(t, token); rec.Code != http.StatusOK {
+		t.Fatalf("bearer status after JWKS recovery = %d, want 200", rec.Code)
+	}
+}
+
+func TestNewPreservesCustomHTTPClient(t *testing.T) {
+	t.Parallel()
+
+	client := &http.Client{Timeout: time.Second}
+
+	fixture := newBearerFixture(t, client)
+	if got := fixture.service.cfg.HTTPClient; got != client || got.Timeout != time.Second {
+		t.Fatalf("HTTP client = %+v, want original client with a 1s timeout", got)
+	}
 }
 
 func (fixture *bearerFixture) token(t *testing.T, mutate func(jwt.MapClaims)) string {
@@ -410,7 +453,7 @@ func (fixture *bearerFixture) call(t *testing.T, token string) *httptest.Respons
 func TestRequireBearer(t *testing.T) {
 	t.Parallel()
 
-	fixture := newBearerFixture(t)
+	fixture := newBearerFixture(t, nil)
 
 	if rec := fixture.call(t, fixture.token(t, nil)); rec.Code != http.StatusOK {
 		t.Fatalf("valid bearer status = %d, body %s", rec.Code, rec.Body.String())
